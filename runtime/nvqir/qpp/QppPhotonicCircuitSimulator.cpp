@@ -241,7 +241,6 @@ protected:
     return measurement_result;
   }
 
-
 public:
   QppPhotonicCircuitSimulator() {
     // Populate the correct name so it is printed correctly during

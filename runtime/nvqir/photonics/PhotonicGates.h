@@ -145,7 +145,7 @@ getPhotonicGateByName(PhotonicGateName name, const std::size_t levels,
     auto length = levels * levels;
     std::vector<std::complex<Scalar>> u(length, 0.0);
     u.at(0) = 1.;
-    for (std::size_t i = 0; i < levels-1; i++) {
+    for (std::size_t i = 0; i < levels - 1; i++) {
       u.at(i * levels + (i + 1)) = 1.;
     }
     return u;

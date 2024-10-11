@@ -5,8 +5,8 @@
  * This source code and the accompanying materials are made available under    *
  * the terms of the Apache License 2.0 which accompanies this distribution.    *
  ******************************************************************************/
-#include "nvqir/photonics/PhotonicCircuitSimulator.h"
 #include "common/PluginUtils.h"
+#include "nvqir/photonics/PhotonicCircuitSimulator.h"
 
 thread_local nvqir::PhotonicCircuitSimulator *photonic_simulator;
 inline static constexpr std::string_view GetPhotonicCircuitSimulatorSymbol =
