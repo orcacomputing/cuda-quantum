@@ -717,7 +717,7 @@ is defined  by
 :code:`beam_splitter`
 ---------------------
 
-Beam splitters act on two qumodes together and it is parametrized by a single angle 
+Beam splitters act on two qumodes together and it is parameterized by a single angle 
 :math:`\theta`, relating to reflectivity.
 For the annihilation (:math:`a_1` and :math:`a_2`) and creation operators (:math:`a_1^\dagger`
 and :math:`a_2^\dagger`) of two qumodes, the beam splitter operator is defined by
