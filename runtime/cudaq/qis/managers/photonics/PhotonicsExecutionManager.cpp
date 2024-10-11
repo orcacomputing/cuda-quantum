@@ -6,8 +6,10 @@
  * the terms of the Apache License 2.0 which accompanies this distribution.    *
  ******************************************************************************/
 #include "common/Logger.h"
+// #include "common/PluginUtils.h"
 #include "cudaq/qis/managers/BasicExecutionManager.h"
 #include "cudaq/qis/qudit.h"
+// #include "cudaq/spin_op.h"
 #include "cudaq/utils/cudaq_utils.h"
 #include "nvqir/photonics/PhotonicCircuitSimulator.h"
 
@@ -36,7 +38,7 @@ struct PhotonicsState : public cudaq::SimulationState {
       : state(std::move(data)), levels(lvl) {}
 
   /// TODO: Rename the API to be generic
-  std::size_t getNumQudits() const override {
+  std::size_t getNumQubits() const override {
     return (std::log2(state.size()) / std::log2(levels));
   }
 
@@ -46,17 +48,17 @@ struct PhotonicsState : public cudaq::SimulationState {
 
   std::complex<double>
   getAmplitude(const std::vector<int> &basisState) override {
-    if (getNumQudits() != basisState.size())
+    if (getNumQubits() != basisState.size())
       throw std::runtime_error(fmt::format(
-          "[photonics] getAmplitude with an invalid number of qudits in the "
+          "[photonics] getAmplitude with an invalid number of bits in the "
           "basis state: expected {}, provided {}.",
-          getNumQudits(), basisState.size()));
+          getNumQubits(), basisState.size()));
 
     // Convert the basis state to an index value
     const std::size_t idx = std::accumulate(
         std::make_reverse_iterator(basisState.end()),
         std::make_reverse_iterator(basisState.begin()), 0ull,
-        [&](std::size_t acc, int digit) { return (acc * levels) + digit; });
+        [&](std::size_t acc, int bit) { return (acc * levels) + bit; });
     return state[idx];
   }
 
@@ -238,7 +240,7 @@ protected:
     // Get the data, create the Qudit* targets
     auto [gateName, parameters, controls, targets, op] = instruction;
 
-    // Map the Qudits to Qudits
+    // Map the Qudits to Qubits
     std::vector<std::size_t> localT;
     std::transform(targets.begin(), targets.end(), std::back_inserter(localT),
                    [](auto &&el) { return el.id; });
