@@ -65,7 +65,7 @@ struct AppliedTensorOp {
 
 /// @brief Wrapper of cutensornetState_t to provide convenient API's for CUDA-Q
 /// simulator implementation.
-template <typename ScalarType = double>
+template <typename ScalarType = double, std::size_t numLevels = 2>
 class TensorNetState {
   using DataType = std::complex<ScalarType>;
   static constexpr cudaDataType_t cudaDataType =
@@ -73,6 +73,7 @@ class TensorNetState {
 
 protected:
   std::size_t m_numQubits;
+
   cutensornetHandle_t m_cutnHandle;
   cutensornetState_t m_quantumState;
   /// Track id of gate tensors that are applied to the state tensors.
@@ -130,6 +131,8 @@ public:
   createFromStateVector(std::span<std::complex<ScalarType>> stateVec,
                         ScratchDeviceMem &inScratchPad,
                         cutensornetHandle_t handle, std::mt19937 &randomEngine);
+  /// @brief Number of levels per qudit (d)
+  std::size_t getNumLevels() const { return numLevels; }
 
   /// @brief Apply a unitary gate
   /// @param controlQubits Controlled qubit operands
@@ -228,9 +231,9 @@ public:
   ~TensorNetState();
 
 private:
-  template <typename ScalarTy>
+  template <typename ScalarTy, std::size_t nLevels>
   friend class SimulatorMPS;
-  template <typename ScalarTy>
+  template <typename ScalarTy, std::size_t nLevels>
   friend class TensorNetSimulationState;
   /// Internal method to contract the tensor network.
   /// Returns device memory pointer and size (number of elements).

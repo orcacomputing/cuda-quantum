@@ -31,15 +31,14 @@ struct MPSSettings {
   MPSSettings();
 };
 
-template <typename ScalarType = double>
+template <typename ScalarType = double, std::size_t numLevels = 2>
 class MPSSimulationState : public cudaq::SimulationState {
 
 public:
-  MPSSimulationState(std::unique_ptr<TensorNetState<ScalarType>> inState,
-                     const std::vector<MPSTensor> &mpsTensors,
-                     ScratchDeviceMem &inScratchPad,
-                     cutensornetHandle_t cutnHandle,
-                     std::mt19937 &randomEngine);
+  MPSSimulationState(
+      std::unique_ptr<TensorNetState<ScalarType, numLevels>> inState,
+      const std::vector<MPSTensor> &mpsTensors, ScratchDeviceMem &inScratchPad,
+      cutensornetHandle_t cutnHandle, std::mt19937 &randomEngine);
 
   MPSSimulationState(const MPSSimulationState &) = delete;
   MPSSimulationState &operator=(const MPSSimulationState &) = delete;
@@ -84,7 +83,7 @@ public:
   /// Encapsulate data needed to initialize an MPS state.
   struct MpsStateData {
     // Represents the tensor network state
-    std::unique_ptr<TensorNetState<ScalarType>> networkState;
+    std::unique_ptr<TensorNetState<ScalarType, numLevels>> networkState;
     // Individual MPS tensors
     std::vector<MPSTensor> tensors;
   };
@@ -108,7 +107,7 @@ protected:
 
   // The state that this owned.
   cutensornetHandle_t m_cutnHandle;
-  std::unique_ptr<TensorNetState<ScalarType>> state;
+  std::unique_ptr<TensorNetState<ScalarType, numLevels>> state;
   std::vector<MPSTensor> m_mpsTensors;
   ScratchDeviceMem &scratchPad;
   // Max number of qubits whereby the tensor network state should be contracted

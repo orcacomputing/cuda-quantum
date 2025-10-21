@@ -14,21 +14,21 @@
 #include <errno.h>
 
 namespace nvqir {
-template <typename ScalarType = double>
-class SimulatorMPS : public SimulatorTensorNetBase<ScalarType> {
+template <typename ScalarType = double, std::size_t numLevels = 2>
+class SimulatorMPS : public SimulatorTensorNetBase<ScalarType, numLevels> {
   MPSSettings m_settings;
   std::vector<MPSTensor> m_mpsTensors_d;
 
 public:
   using GateApplicationTask =
       typename nvqir::CircuitSimulatorBase<ScalarType>::GateApplicationTask;
-  using SimulatorTensorNetBase<ScalarType>::m_cutnHandle;
+  using SimulatorTensorNetBase<ScalarType, numLevels>::m_cutnHandle;
   using SimulatorTensorNetBase<
-      ScalarType>::m_maxControlledRankForFullTensorExpansion;
-  using SimulatorTensorNetBase<ScalarType>::m_state;
-  using SimulatorTensorNetBase<ScalarType>::scratchPad;
-  using SimulatorTensorNetBase<ScalarType>::m_randomEngine;
-  SimulatorMPS() : SimulatorTensorNetBase<ScalarType>() {}
+      ScalarType, numLevels>::m_maxControlledRankForFullTensorExpansion;
+  using SimulatorTensorNetBase<ScalarType, numLevels>::m_state;
+  using SimulatorTensorNetBase<ScalarType, numLevels>::scratchPad;
+  using SimulatorTensorNetBase<ScalarType, numLevels>::m_randomEngine;
+  SimulatorMPS() : SimulatorTensorNetBase<ScalarType, numLevels>() {}
 
   virtual void prepareQubitTensorState() override {
     LOG_API_TIME();
@@ -51,13 +51,14 @@ public:
   virtual void
   addQubitsToState(const cudaq::SimulationState &in_state) override {
     LOG_API_TIME();
-    const MPSSimulationState<ScalarType> *const casted =
-        dynamic_cast<const MPSSimulationState<ScalarType> *>(&in_state);
+    const MPSSimulationState<ScalarType, numLevels> *const casted =
+        dynamic_cast<const MPSSimulationState<ScalarType, numLevels> *>(
+            &in_state);
     if (!casted)
       throw std::invalid_argument(
           "[SimulatorMPS simulator] Incompatible state input");
     if (!m_state) {
-      m_state = TensorNetState<ScalarType>::createFromMpsTensors(
+      m_state = TensorNetState<ScalarType, numLevels>::createFromMpsTensors(
           casted->getMpsTensors(), scratchPad, m_cutnHandle, m_randomEngine);
     } else {
       // Expand an existing state: Append MPS tensors
@@ -87,7 +88,7 @@ public:
                                      tensorSizeBytes, cudaMemcpyDefault));
         tensors.emplace_back(MPSTensor(mpsTensor, extents));
       }
-      m_state = TensorNetState<ScalarType>::createFromMpsTensors(
+      m_state = TensorNetState<ScalarType, numLevels>::createFromMpsTensors(
           tensors, scratchPad, m_cutnHandle, m_randomEngine);
     }
   }
@@ -298,7 +299,8 @@ public:
     const std::size_t numObserveTrajectories =
         this->executionContext->numberTrajectories.has_value()
             ? this->executionContext->numberTrajectories.value()
-            : TensorNetState<ScalarType>::g_numberTrajectoriesForObserve;
+            : TensorNetState<ScalarType,
+                             numLevels>::g_numberTrajectoriesForObserve;
 
     auto [termStrs, terms] = prepareSpinOpTermData(ham);
     std::vector<std::complex<double>> termExpVals(terms.size(), 0.0);
@@ -344,12 +346,18 @@ public:
     LOG_API_TIME();
     if (!m_state) {
       if (!ptr) {
-        m_state = std::make_unique<TensorNetState<ScalarType>>(
+        m_state = std::make_unique<TensorNetState<ScalarType, numLevels>>(
             numQubits, scratchPad, m_cutnHandle, m_randomEngine);
       } else {
+        std::size_t full_dim = 0;
+        if (numLevels == 2) {
+          full_dim = (1ULL << numQubits);
+        } else {
+          full_dim = pow(numLevels, numQubits);
+        }
         auto [state, mpsTensors] =
-            MPSSimulationState<ScalarType>::createFromStateVec(
-                m_cutnHandle, scratchPad, 1ULL << numQubits,
+            MPSSimulationState<ScalarType, numLevels>::createFromStateVec(
+                m_cutnHandle, scratchPad, full_dim,
                 reinterpret_cast<std::complex<ScalarType> *>(
                     const_cast<void *>(ptr)),
                 m_settings.maxBond, m_randomEngine);
@@ -376,13 +384,19 @@ public:
                                        cudaMemcpyHostToDevice));
           tensors.emplace_back(MPSTensor(mpsTensor, extents));
         }
-        m_state = TensorNetState<ScalarType>::createFromMpsTensors(
+        m_state = TensorNetState<ScalarType, numLevels>::createFromMpsTensors(
             tensors, scratchPad, m_cutnHandle, m_randomEngine);
       } else {
+        std::size_t full_dim = 0;
+        if (numLevels == 2) {
+          full_dim = (1ULL << numQubits);
+        } else {
+          full_dim = pow(numLevels, numQubits);
+        }
         // Non-zero state needs to be factorized and appended.
         auto [state, mpsTensors] =
-            MPSSimulationState<ScalarType>::createFromStateVec(
-                m_cutnHandle, scratchPad, 1ULL << numQubits,
+            MPSSimulationState<ScalarType, numLevels>::createFromStateVec(
+                m_cutnHandle, scratchPad, full_dim,
                 reinterpret_cast<std::complex<ScalarType> *>(
                     const_cast<void *>(ptr)),
                 m_settings.maxBond, m_randomEngine);
@@ -398,7 +412,7 @@ public:
         mpsTensors.front().extents = extents;
         // Combine the list
         tensors.insert(tensors.end(), mpsTensors.begin(), mpsTensors.end());
-        m_state = TensorNetState<ScalarType>::createFromMpsTensors(
+        m_state = TensorNetState<ScalarType, numLevels>::createFromMpsTensors(
             tensors, scratchPad, m_cutnHandle, m_randomEngine);
       }
     }
@@ -408,7 +422,7 @@ public:
     LOG_API_TIME();
 
     if (!m_state || m_state->getNumQubits() == 0)
-      return std::make_unique<MPSSimulationState<ScalarType>>(
+      return std::make_unique<MPSSimulationState<ScalarType, numLevels>>(
           std::move(m_state), std::vector<MPSTensor>{}, scratchPad,
           m_cutnHandle, m_randomEngine);
 
@@ -416,7 +430,7 @@ public:
       std::vector<MPSTensor> tensors = m_state->factorizeMPS(
           m_settings.maxBond, m_settings.absCutoff, m_settings.relCutoff,
           m_settings.svdAlgo, m_settings.gaugeOption);
-      return std::make_unique<MPSSimulationState<ScalarType>>(
+      return std::make_unique<MPSSimulationState<ScalarType, numLevels>>(
           std::move(m_state), tensors, scratchPad, m_cutnHandle,
           m_randomEngine);
     }
@@ -427,7 +441,7 @@ public:
     stateTensor.deviceData = d_tensor;
     stateTensor.extents = {static_cast<int64_t>(numElements)};
 
-    return std::make_unique<MPSSimulationState<ScalarType>>(
+    return std::make_unique<MPSSimulationState<ScalarType, numLevels>>(
         std::move(m_state), std::vector<MPSTensor>{stateTensor}, scratchPad,
         m_cutnHandle, m_randomEngine);
   }

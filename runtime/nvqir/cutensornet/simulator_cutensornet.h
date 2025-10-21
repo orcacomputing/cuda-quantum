@@ -14,8 +14,9 @@
 
 namespace nvqir {
 /// @brief Base class of `cutensornet` simulator backends
-template <typename ScalarType = double>
+template <typename ScalarType = double, std::size_t numLevels = 2>
 class SimulatorTensorNetBase : public nvqir::CircuitSimulatorBase<ScalarType> {
+
 public:
   using DataType = std::complex<ScalarType>;
   static constexpr cudaDataType_t cudaDataType =
@@ -51,7 +52,7 @@ public:
   // the tensornet backend). When the user want to retrieve the state vector, we
   // check if it is feasible to do so.
   virtual std::size_t calculateStateDim(const std::size_t numQubits) override {
-    return numQubits;
+    return static_cast<std::size_t>(std::pow(numLevels, numQubits));
   }
 
   /// @brief Reset the state of a given qubit to zero
@@ -120,7 +121,7 @@ private:
 
 protected:
   cutensornetHandle_t m_cutnHandle;
-  std::unique_ptr<TensorNetState<ScalarType>> m_state;
+  std::unique_ptr<TensorNetState<ScalarType, numLevels>> m_state;
   std::unordered_map<std::string, void *> m_gateDeviceMemCache;
   ScratchDeviceMem scratchPad;
   // Random number generator for generating 32-bit numbers with a state size of

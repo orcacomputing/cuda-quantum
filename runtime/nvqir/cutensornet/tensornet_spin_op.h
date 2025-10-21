@@ -14,7 +14,7 @@ namespace nvqir {
 
 /// @brief Utility class converting `cudaq::spin_op` to
 /// cutensornetNetworkOperator_t
-template <typename ScalarType>
+template <typename ScalarType, std::size_t numLevels = 2>
 class TensorNetworkSpinOp {
   static constexpr cudaDataType_t cudaDataType =
       std::is_same_v<ScalarType, float> ? CUDA_C_32F : CUDA_C_64F;
