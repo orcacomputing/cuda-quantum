@@ -200,7 +200,8 @@ protected:
   /// @brief Override the default sized allocation of qubits
   /// here to be a bit more efficient than the default implementation
   void addQubitsToState(std::size_t qubitCount,
-                        const void *stateDataIn = nullptr) override {
+                        const void *stateDataIn = nullptr,
+                        std::size_t levels = 2) override {
     if (stateDataIn)
       throw std::runtime_error("The Stim simulator does not support "
                                "initialization of qubits from state data.");

@@ -726,6 +726,9 @@ CUDAQ_ONE_QUBIT_IMPL(x, XOp)
 CUDAQ_ONE_QUBIT_IMPL(y, YOp)
 CUDAQ_ONE_QUBIT_IMPL(z, ZOp)
 
+CUDAQ_ONE_QUBIT_IMPL(create, CreateOp)
+CUDAQ_ONE_QUBIT_IMPL(annihilate, AnnihilateOp)
+
 #define CUDAQ_ONE_QUBIT_PARAM_IMPL(NAME, QUAKENAME)                            \
   void NAME(ImplicitLocOpBuilder &builder, QuakeValue &parameter,              \
             std::vector<QuakeValue> &ctrls, QuakeValue &target) {              \

@@ -13,8 +13,8 @@
 
 namespace nvqir {
 
-template <typename ScalarType, std::size_t numLevels>
-TensorNetworkSpinOp<ScalarType, numLevels>::TensorNetworkSpinOp(
+template <typename ScalarType>
+TensorNetworkSpinOp<ScalarType>::TensorNetworkSpinOp(
     const cudaq::spin_op &spinOp, cutensornetHandle_t handle)
     : m_cutnHandle(handle) {
   LOG_API_TIME();
@@ -26,7 +26,7 @@ TensorNetworkSpinOp<ScalarType, numLevels>::TensorNetworkSpinOp(
   const std::size_t maxQubitIdx =
       *std::max_element(degrees.begin(), degrees.end());
   const std::size_t numQubits = maxQubitIdx + 1;
-  const std::vector<int64_t> qubitDims(numQubits, numLevels);
+  const std::vector<int64_t> qubitDims(numQubits, this->levels);
   HANDLE_CUTN_ERROR(cutensornetCreateNetworkOperator(
       m_cutnHandle, qubitDims.size(), qubitDims.data(), cudaDataType,
       &m_cutnNetworkOperator));
@@ -137,8 +137,8 @@ TensorNetworkSpinOp<ScalarType, numLevels>::TensorNetworkSpinOp(
   }
 }
 
-template <typename ScalarType, std::size_t numLevels>
-TensorNetworkSpinOp<ScalarType, numLevels>::~TensorNetworkSpinOp() {
+template <typename ScalarType>
+TensorNetworkSpinOp<ScalarType>::~TensorNetworkSpinOp() {
   HANDLE_CUTN_ERROR(cutensornetDestroyNetworkOperator(m_cutnNetworkOperator));
   for (const auto &[pauli, dMem] : m_pauli_d)
     HANDLE_CUDA_ERROR(cudaFree(dMem));

@@ -18,25 +18,25 @@ int deviceFromPointer(void *ptr) {
   return attributes.device;
 }
 
-template <typename ScalarType, std::size_t numLevels>
+template <typename ScalarType>
 std::size_t
-TensorNetSimulationState<ScalarType, numLevels>::getNumQubits() const {
+TensorNetSimulationState<ScalarType>::getNumQubits() const {
   return m_state->getNumQubits();
 }
 
-template <typename ScalarType, std::size_t numLevels>
-TensorNetSimulationState<ScalarType, numLevels>::TensorNetSimulationState(
-    std::unique_ptr<TensorNetState<ScalarType, numLevels>> inState,
+template <typename ScalarType>
+TensorNetSimulationState<ScalarType>::TensorNetSimulationState(
+    std::unique_ptr<TensorNetState<ScalarType>> inState,
     ScratchDeviceMem &inScratchPad, cutensornetHandle_t cutnHandle,
-    std::mt19937 &randomEngine)
+    std::mt19937 &randomEngine, std::size_t &numLevels)
     : m_state(std::move(inState)), scratchPad(inScratchPad),
-      m_cutnHandle(cutnHandle), m_randomEngine(randomEngine) {}
+      m_cutnHandle(cutnHandle), m_randomEngine(randomEngine), m_numLevels(numLevels) {}
 
-template <typename ScalarType, std::size_t numLevels>
-TensorNetSimulationState<ScalarType, numLevels>::~TensorNetSimulationState() {}
+template <typename ScalarType>
+TensorNetSimulationState<ScalarType>::~TensorNetSimulationState() {}
 
-template <typename ScalarType, std::size_t numLevels>
-std::complex<double> TensorNetSimulationState<ScalarType, numLevels>::overlap(
+template <typename ScalarType>
+std::complex<double> TensorNetSimulationState<ScalarType>::overlap(
     const cudaq::SimulationState &other) {
   const cudaq::SimulationState *const otherStatePtr = &other;
   const TensorNetSimulationState *const tnOther =
@@ -209,9 +209,9 @@ std::complex<double> TensorNetSimulationState<ScalarType, numLevels>::overlap(
   return std::abs(h_overlap);
 }
 
-template <typename ScalarType, std::size_t numLevels>
+template <typename ScalarType>
 std::complex<double>
-TensorNetSimulationState<ScalarType, numLevels>::getAmplitude(
+TensorNetSimulationState<ScalarType>::getAmplitude(
     const std::vector<int> &basisState) {
   if (getNumQubits() != basisState.size())
     throw std::runtime_error(
@@ -232,11 +232,11 @@ TensorNetSimulationState<ScalarType, numLevels>::getAmplitude(
     // If this is the first time, cache the state.
     if (m_contractedStateVec.empty())
       m_contractedStateVec = m_state->getStateVector();
-    if (numLevels == 2) {
+    if (this->m_numLevels == 2) {
       assert(m_contractedStateVec.size() == (1ULL << m_state->getNumQubits()));
     } else {
       assert(m_contractedStateVec.size() ==
-             pow(numLevels, m_state->getNumQubits()));
+             pow(this->m_numLevels, m_state->getNumQubits()));
     }
     const std::size_t idx = std::accumulate(
         std::make_reverse_iterator(basisState.end()),
@@ -255,9 +255,9 @@ TensorNetSimulationState<ScalarType, numLevels>::getAmplitude(
   return subStateVec[0];
 }
 
-template <typename ScalarType, std::size_t numLevels>
+template <typename ScalarType>
 cudaq::SimulationState::Tensor
-TensorNetSimulationState<ScalarType, numLevels>::getTensor(
+TensorNetSimulationState<ScalarType>::getTensor(
     std::size_t tensorIdx) const {
   if (tensorIdx >= getNumTensors())
     throw std::out_of_range("Invalid tensor index");
@@ -270,9 +270,9 @@ TensorNetSimulationState<ScalarType, numLevels>::getTensor(
   return tensor;
 }
 
-template <typename ScalarType, std::size_t numLevels>
+template <typename ScalarType>
 std::vector<cudaq::SimulationState::Tensor>
-TensorNetSimulationState<ScalarType, numLevels>::getTensors() const {
+TensorNetSimulationState<ScalarType>::getTensors() const {
   std::vector<cudaq::SimulationState::Tensor> tensors;
   tensors.reserve(m_state->m_tensorOps.size());
 
@@ -287,15 +287,15 @@ TensorNetSimulationState<ScalarType, numLevels>::getTensors() const {
   return tensors;
 }
 
-template <typename ScalarType, std::size_t numLevels>
+template <typename ScalarType>
 std::size_t
-TensorNetSimulationState<ScalarType, numLevels>::getNumTensors() const {
+TensorNetSimulationState<ScalarType>::getNumTensors() const {
   return m_state->m_tensorOps.size();
 }
 
-template <typename ScalarType, std::size_t numLevels>
+template <typename ScalarType>
 std::unique_ptr<cudaq::SimulationState>
-TensorNetSimulationState<ScalarType, numLevels>::createFromSizeAndPtr(
+TensorNetSimulationState<ScalarType>::createFromSizeAndPtr(
     std::size_t size, void *ptr, std::size_t dataType) {
   if (dataType == cudaq::detail::variant_index<cudaq::state_data,
                                                cudaq::TensorStateData>()) {
@@ -306,23 +306,23 @@ TensorNetSimulationState<ScalarType, numLevels>::createFromSizeAndPtr(
       reinterpret_cast<std::complex<ScalarType> *>(ptr),
       reinterpret_cast<std::complex<ScalarType> *>(ptr) + size);
   auto tensorNetState =
-      TensorNetState<ScalarType, numLevels>::createFromStateVector(
-          vec, scratchPad, m_cutnHandle, m_randomEngine);
+      TensorNetState<ScalarType>::createFromStateVector(
+          vec, scratchPad, m_cutnHandle, m_randomEngine, m_numLevels);
 
-  return std::make_unique<TensorNetSimulationState<ScalarType, numLevels>>(
+  return std::make_unique<TensorNetSimulationState<ScalarType>>(
       std::move(tensorNetState), scratchPad, m_cutnHandle,
-      m_randomEngine);
+      m_randomEngine, m_numLevels);
 }
 
-template <typename ScalarType, std::size_t numLevels>
-void TensorNetSimulationState<ScalarType, numLevels>::destroyState() {
+template <typename ScalarType>
+void TensorNetSimulationState<ScalarType>::destroyState() {
   CUDAQ_INFO("mps-state destroying state vector handle.");
   m_state.reset();
 }
 
-template <typename ScalarType, std::size_t numLevels>
+template <typename ScalarType>
 template <typename T>
-void TensorNetSimulationState<ScalarType, numLevels>::toHostImpl(
+void TensorNetSimulationState<ScalarType>::toHostImpl(
     std::complex<T> *clientAllocatedData, std::size_t numElements) const {
   auto stateVec = m_state->getStateVector();
   if (stateVec.size() != numElements)
@@ -339,20 +339,20 @@ void TensorNetSimulationState<ScalarType, numLevels>::toHostImpl(
   }
 }
 
-template <typename ScalarType, std::size_t numLevels>
-void TensorNetSimulationState<ScalarType, numLevels>::toHost(
+template <typename ScalarType>
+void TensorNetSimulationState<ScalarType>::toHost(
     std::complex<double> *clientAllocatedData, std::size_t numElements) const {
   toHostImpl(clientAllocatedData, numElements);
 }
 
-template <typename ScalarType, std::size_t numLevels>
-void TensorNetSimulationState<ScalarType, numLevels>::toHost(
+template <typename ScalarType>
+void TensorNetSimulationState<ScalarType>::toHost(
     std::complex<float> *clientAllocatedData, std::size_t numElements) const {
   toHostImpl(clientAllocatedData, numElements);
 }
 
-template <typename ScalarType, std::size_t numLevels>
-void TensorNetSimulationState<ScalarType, numLevels>::dump(
+template <typename ScalarType>
+void TensorNetSimulationState<ScalarType>::dump(
     std::ostream &os) const {
   const auto printState = [&os](const auto &stateVec) {
     for (auto &t : stateVec)

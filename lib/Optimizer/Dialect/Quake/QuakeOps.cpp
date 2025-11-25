@@ -971,6 +971,29 @@ void quake::ZOp::getOperatorMatrix(Matrix &matrix) {
 
 void quake::CustomUnitarySymbolOp::getOperatorMatrix(Matrix &matrix) {}
 
+void quake::CreateOp::getOperatorMatrix(Matrix &matrix, size_t numLevels) {
+
+    auto length = numLevels * numLevels;
+    std::vector<std::complex<double>> u(length, 0.0);
+    u.at(length - 1) = 1.;
+    for (std::size_t i = 1; i < numLevels; i++) {
+      u.at(i * numLevels + (i - 1)) = 1.; // TODO fix this
+    }
+    matrix.assign(u.begin(), u.end());
+}
+
+
+void quake::AnnihilateOp::getOperatorMatrix(Matrix &matrix, size_t numLevels) {
+
+    auto length = numLevels * numLevels;
+    std::vector<std::complex<double>> u(length, 0.0);
+    u.at(0) = 1.;
+    for (std::size_t i = 0; i < numLevels - 1; i++) {
+      u.at(i * numLevels + (i + 1)) = 1.; // TODO fix this
+    }
+    matrix.assign(u.begin(), u.end());
+}
+
 //===----------------------------------------------------------------------===//
 
 /// Never inline a `quake.apply` of a variant form of a kernel. The apply
@@ -1055,7 +1078,8 @@ void quake::getOperatorEffectsImpl(EffectsVectorImpl &effects,
 // clang-format off
 #define GATE_OPS(MACRO) MACRO(XOp) MACRO(YOp) MACRO(ZOp) MACRO(HOp) MACRO(SOp) \
   MACRO(TOp) MACRO(SwapOp) MACRO(U2Op) MACRO(U3Op) MACRO(R1Op) MACRO(RxOp)     \
-  MACRO(RyOp) MACRO(RzOp) MACRO(PhasedRxOp) MACRO(CustomUnitarySymbolOp)
+  MACRO(RyOp) MACRO(RzOp) MACRO(PhasedRxOp) MACRO(CustomUnitarySymbolOp)       \
+  MACRO(CreateOp) MACRO(AnnihilateOp)
 #define MEASURE_OPS(MACRO) MACRO(MxOp) MACRO(MyOp) MACRO(MzOp)
 #define QUANTUM_OPS(MACRO) MACRO(ResetOp) MACRO(ExpPauliOp) GATE_OPS(MACRO)    \
   MEASURE_OPS(MACRO)

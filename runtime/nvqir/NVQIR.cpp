@@ -171,6 +171,14 @@ std::size_t qubitToSizeT(Qubit *q) {
   return q->idx;
 }
 
+/// @brief Utility function mapping a QIR Qubit pointer to its id
+std::size_t quditToSizeT(Qubit *q) {
+  if (qubitPtrIsIndex)
+    return (intptr_t)q;
+  assert(q && "qubit must not be null");
+  return q->idx;
+}
+
 template <typename T>
 concept FloatType = std::is_same<T, float>::value;
 
@@ -504,6 +512,34 @@ void __quantum__qis__s__adj(Qubit *qubit) {
   nvqir::getCircuitSimulatorInternal()->sdg(targetIdx);
 }
 
+#define PHOTONIC_ONE_QUDIT_QIS_FUNCTION(GATENAME)                              \
+  void QIS_FUNCTION_NAME(GATENAME)(std::size_t levels, Qubit * qudit) {        \
+    auto targetIdx = quditToSizeT(qudit);                                      \
+    ScopedTraceWithContext("NVQIR::" + std::string(#GATENAME), targetIdx);     \
+    nvqir::getCircuitSimulatorInternal()->GATENAME(levels, targetIdx);         \
+  }                                                                            \
+  void QIS_FUNCTION_CTRL_NAME(GATENAME)(std::size_t levels,                    \
+                                        Array * ctrlQubits, Qubit * qudit) {   \
+    auto ctrlIdxs = arrayToVectorSizeT(ctrlQubits);                            \
+    auto targetIdx = quditToSizeT(qudit);                                      \
+    ScopedTraceWithContext("NVQIR::ctrl-" + std::string(#GATENAME), ctrlIdxs,  \
+                           targetIdx);                                         \
+    nvqir::getCircuitSimulatorInternal()->GATENAME(levels, ctrlIdxs,           \
+                                                   targetIdx);                 \
+  }                                                                            \
+  void QIS_FUNCTION_BODY_NAME(GATENAME)(std::size_t levels, Qubit * qudit) {   \
+    QIS_FUNCTION_NAME(GATENAME)(levels, qudit);                                \
+  }
+
+void __quantum__qis__create(std::size_t levels, Qubit *qudit) {
+  auto targetIdx = quditToSizeT(qudit);
+  ScopedTraceWithContext("NVQIR::create", targetIdx);
+  nvqir::getCircuitSimulatorInternal()->create(levels, targetIdx);
+}
+// PHOTONIC_ONE_QUDIT_QIS_FUNCTION(create);
+PHOTONIC_ONE_QUDIT_QIS_FUNCTION(annihilate);
+// PHOTONIC_ONE_QUDIT_QIS_FUNCTION(plus);
+
 #define ONE_QUBIT_PARAM_QIS_FUNCTION(GATENAME)                                 \
   void QIS_FUNCTION_NAME(GATENAME)(double param, Qubit *qubit) {               \
     auto targetIdx = qubitToSizeT(qubit);                                      \
@@ -528,6 +564,58 @@ ONE_QUBIT_PARAM_QIS_FUNCTION(rx);
 ONE_QUBIT_PARAM_QIS_FUNCTION(ry);
 ONE_QUBIT_PARAM_QIS_FUNCTION(rz);
 ONE_QUBIT_PARAM_QIS_FUNCTION(r1);
+
+#define PHOTONIC_ONE_QUDIT_PARAM_QIS_FUNCTION(GATENAME)                        \
+  void QIS_FUNCTION_NAME(GATENAME)(std::size_t levels, double param,           \
+                                   Qubit *qubit) {                             \
+    auto targetIdx = qubitToSizeT(qubit);                                      \
+    ScopedTraceWithContext("NVQIR::" + std::string(#GATENAME), param,          \
+                           targetIdx);                                         \
+    nvqir::getCircuitSimulatorInternal()->GATENAME(levels, param, targetIdx);  \
+  }                                                                            \
+  void QIS_FUNCTION_BODY_NAME(GATENAME)(std::size_t levels, double param,      \
+                                        Qubit *qubit) {                        \
+    QIS_FUNCTION_NAME(GATENAME)(levels, param, qubit);                         \
+  }                                                                            \
+  void QIS_FUNCTION_CTRL_NAME(GATENAME)(std::size_t levels, double param,      \
+                                        Array *ctrlQubits, Qubit *qubit) {     \
+    auto ctrlIdxs = arrayToVectorSizeT(ctrlQubits);                            \
+    auto targetIdx = qubitToSizeT(qubit);                                      \
+    ScopedTraceWithContext("NVQIR::" + std::string(#GATENAME), param,          \
+                           ctrlIdxs, targetIdx);                               \
+    nvqir::getCircuitSimulatorInternal()->GATENAME(levels, param, ctrlIdxs,    \
+                                                   targetIdx);                 \
+  }
+
+// PHOTONIC_ONE_QUDIT_PARAM_QIS_FUNCTION(phase_shift);
+
+#define PHOTONIC_TWO_QUDIT_PARAM_QIS_FUNCTION(GATENAME)                        \
+  void QIS_FUNCTION_NAME(GATENAME)(std::size_t levels, double param,           \
+                                   Qubit *qubit1, Qubit *qubit2) {             \
+    auto targetIdx1 = qubitToSizeT(qubit1);                                    \
+    auto targetIdx2 = qubitToSizeT(qubit2);                                    \
+    ScopedTraceWithContext("NVQIR::" + std::string(#GATENAME), param,          \
+                           targetIdx1, targetIdx2);                            \
+    nvqir::getCircuitSimulatorInternal()->GATENAME(levels, param,              \
+                                                   {targetIdx1, targetIdx2});  \
+  }                                                                            \
+  void QIS_FUNCTION_BODY_NAME(GATENAME)(std::size_t levels, double param,      \
+                                        Qubit *qubit1, Qubit *qubit2) {        \
+    QIS_FUNCTION_NAME(GATENAME)(levels, param, qubit1, qubit2);                \
+  }                                                                            \
+  void QIS_FUNCTION_CTRL_NAME(GATENAME)(std::size_t levels, double param,      \
+                                        Array *ctrlQubits, Qubit *qubit1,      \
+                                        Qubit *qubit2) {                       \
+    auto ctrlIdxs = arrayToVectorSizeT(ctrlQubits);                            \
+    auto targetIdx1 = qubitToSizeT(qubit1);                                    \
+    auto targetIdx2 = qubitToSizeT(qubit2);                                    \
+    ScopedTraceWithContext("NVQIR::" + std::string(#GATENAME), param,          \
+                           ctrlIdxs, targetIdx1, targetIdx2);                  \
+    nvqir::getCircuitSimulatorInternal()->GATENAME(levels, param, ctrlIdxs,    \
+                                                   {targetIdx1, targetIdx2});  \
+  }
+
+// PHOTONIC_TWO_QUDIT_PARAM_QIS_FUNCTION(beam_splitter);
 
 void __quantum__qis__swap(Qubit *q, Qubit *r) {
   auto qI = qubitToSizeT(q);

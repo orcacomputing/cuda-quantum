@@ -350,6 +350,26 @@ protected:
     }
   }
 
+  cudaq::complex_matrix beam_splitter_matrix(std::size_t numLevels,
+                                             std::complex<double> &theta) {
+    // Returns the beam splitter operator matrix.
+    //  Args:
+    //   - theta: Beam splitter angle.
+    cudaq::dimension_map dimension_map = {{0, numLevels}, {1, numLevels}};
+    static constexpr std::complex<double> im = std::complex<double>(0, 1.);
+
+    auto create0 = cudaq::boson_op::create(0);
+    auto annihilate0 = cudaq::boson_op::annihilate(0);
+    auto create1 = cudaq::boson_op::create(1);
+    auto annihilate1 = cudaq::boson_op::annihilate(1);
+
+    auto term1 = create0 * annihilate1;
+    auto term2 = annihilate0 * create1;
+    return (im * theta * (term1 + term2))
+        .to_matrix(dimension_map)
+        .exponential();
+  };
+
 public:
   PhotonicsExecutionManager() {
 
@@ -397,9 +417,12 @@ public:
       auto target1 = qudits[0];
       auto target2 = qudits[1];
       size_t d = target1.levels;
-      const double theta = params[0];
-      qpp::cmat BS{qpp::cmat::Zero(d * d, d * d)};
-      beam_splitter(theta, BS);
+
+      std::complex<double> theta = params[0];
+      qpp::cmat BS = beam_splitter_matrix(d, theta).as_eigen();
+      // const double theta = params[0];
+      // qpp::cmat BS{qpp::cmat::Zero(d * d, d * d)};
+      // beam_splitter(theta, BS);
       CUDAQ_INFO("Applying beam_splitter on {}<{}> and {}<{}>", target1.id,
                  target1.levels, target2.id, target2.levels);
       state = qpp::apply(state, BS, {target1.id, target2.id}, d);

@@ -23,5 +23,6 @@ install (DIRECTORY common DESTINATION include FILES_MATCHING PATTERN "*.h")
 install (FILES nvqir/CircuitSimulator.h
                nvqir/QIRTypes.h
                nvqir/Gates.h
+               nvqir/PhotonicGates.h
         DESTINATION include/nvqir)
 install (FILES cudaq.h DESTINATION include)

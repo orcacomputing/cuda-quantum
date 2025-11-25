@@ -1795,7 +1795,14 @@ struct FullQIR {
         QuantumGatePattern<Self, quake::U3Op>,
         QuantumGatePattern<Self, quake::XOp>,
         QuantumGatePattern<Self, quake::YOp>,
-        QuantumGatePattern<Self, quake::ZOp>>(typeConverter, ctx);
+        QuantumGatePattern<Self, quake::ZOp>,
+
+        /* Photonic quantum operators. */
+        QuantumGatePattern<Self, quake::CreateOp>,
+        QuantumGatePattern<Self, quake::AnnihilateOp>>(typeConverter, ctx);
+    // QuantumGatePattern<Self, quake::PlusOp>,
+    // QuantumGatePattern<Self, quake::PhaseShiftOp>,
+    // QuantumGatePattern<Self, quake::BeamSplitterOp>>(typeConverter, ctx);
     commonQuakeHandlingPatterns(patterns, typeConverter, ctx);
     commonClassicalHandlingPatterns(patterns, typeConverter, ctx);
   }

@@ -12,6 +12,7 @@
 #include "cudaq/algorithms/draw.h"
 #include "cudaq/utils/matrix.h"
 #include "nvqir/Gates.h"
+#include "nvqir/PhotonicGates.h"
 #include <iostream>
 
 namespace cudaq::contrib {

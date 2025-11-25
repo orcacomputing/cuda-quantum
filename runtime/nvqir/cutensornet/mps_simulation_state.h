@@ -31,14 +31,15 @@ struct MPSSettings {
   MPSSettings();
 };
 
-template <typename ScalarType = double, std::size_t numLevels = 2>
+template <typename ScalarType = double>
 class MPSSimulationState : public cudaq::SimulationState {
 
 public:
-  MPSSimulationState(
-      std::unique_ptr<TensorNetState<ScalarType, numLevels>> inState,
-      const std::vector<MPSTensor> &mpsTensors, ScratchDeviceMem &inScratchPad,
-      cutensornetHandle_t cutnHandle, std::mt19937 &randomEngine);
+  MPSSimulationState(std::unique_ptr<TensorNetState<ScalarType>> inState,
+                     const std::vector<MPSTensor> &mpsTensors,
+                     ScratchDeviceMem &inScratchPad,
+                     cutensornetHandle_t cutnHandle,
+                     std::mt19937 &randomEngine, std::size_t &numLevels);
 
   MPSSimulationState(const MPSSimulationState &) = delete;
   MPSSimulationState &operator=(const MPSSimulationState &) = delete;
@@ -83,18 +84,17 @@ public:
   /// Encapsulate data needed to initialize an MPS state.
   struct MpsStateData {
     // Represents the tensor network state
-    std::unique_ptr<TensorNetState<ScalarType, numLevels>> networkState;
+    std::unique_ptr<TensorNetState<ScalarType>> networkState;
     // Individual MPS tensors
     std::vector<MPSTensor> tensors;
   };
   /// Util method to create an MPS state from an input state vector.
   // For example, state vector from the user's input.
-  static MpsStateData createFromStateVec(cutensornetHandle_t cutnHandle,
-                                         ScratchDeviceMem &inScratchPad,
-                                         std::size_t size,
-                                         std::complex<ScalarType> *data,
-                                         int bondDim,
-                                         std::mt19937 &randomEngine);
+  static MpsStateData
+  createFromStateVec(cutensornetHandle_t cutnHandle,
+                     ScratchDeviceMem &inScratchPad, std::size_t size,
+                     std::complex<ScalarType> *data, int bondDim,
+                     std::mt19937 &randomEngine, std::size_t &m_numLevels);
 
   /// Retrieve the MPS tensors
   std::vector<MPSTensor> getMpsTensors() const { return m_mpsTensors; }
@@ -107,7 +107,7 @@ protected:
 
   // The state that this owned.
   cutensornetHandle_t m_cutnHandle;
-  std::unique_ptr<TensorNetState<ScalarType, numLevels>> state;
+  std::unique_ptr<TensorNetState<ScalarType>> state;
   std::vector<MPSTensor> m_mpsTensors;
   ScratchDeviceMem &scratchPad;
   // Max number of qubits whereby the tensor network state should be contracted
@@ -116,6 +116,7 @@ protected:
   static constexpr std::size_t g_maxQubitsForStateContraction = 30;
   std::vector<std::complex<ScalarType>> m_contractedStateVec;
   std::mt19937 &m_randomEngine;
+  std::size_t &m_numLevels;
 };
 
 } // namespace nvqir

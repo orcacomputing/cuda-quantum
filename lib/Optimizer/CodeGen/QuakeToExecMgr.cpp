@@ -464,8 +464,9 @@ void cudaq::opt::populateQuakeToCCPatterns(TypeConverter &converter,
                   GenericRewrite<quake::SOp>, GenericRewrite<quake::SwapOp>,
                   GenericRewrite<quake::TOp>, GenericRewrite<quake::U2Op>,
                   GenericRewrite<quake::U3Op>, GenericRewrite<quake::XOp>,
-                  GenericRewrite<quake::YOp>, GenericRewrite<quake::ZOp>>(
-      converter, context);
+                  GenericRewrite<quake::YOp>, GenericRewrite<quake::ZOp>,
+                  GenericRewrite<quake::CreateOp>,
+                  GenericRewrite<quake::AnnihilateOp>>(converter, context);
 }
 
 void cudaq::opt::populateQuakeToCCPrepPatterns(RewritePatternSet &patterns) {

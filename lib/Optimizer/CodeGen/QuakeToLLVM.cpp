@@ -1426,7 +1426,8 @@ void cudaq::opt::populateQuakeToLLVMPatterns(LLVMTypeConverter &typeConverter,
               OneTargetOneParamRewrite<quake::RzOp>,
               OneTargetTwoParamRewrite<quake::U2Op>,
               OneTargetThreeParamRewrite<quake::U3Op>, QmemRAIIOpRewrite,
-              ResetRewrite, SubveqOpRewrite, TwoTargetRewrite<quake::SwapOp>>(
-          typeConverter);
+              ResetRewrite, SubveqOpRewrite, TwoTargetRewrite<quake::SwapOp>,
+              OneTargetRewrite<quake::CreateOp>,
+              OneTargetRewrite<quake::AnnihilateOp>>(typeConverter);
   patterns.insert<MeasureRewrite<quake::MzOp>>(typeConverter, measureCounter);
 }

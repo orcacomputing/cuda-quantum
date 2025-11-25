@@ -420,16 +420,17 @@ struct WireSetToProfileQIRPass
     QuakeTypeConverter quakeTypeConverter;
     unsigned resultCounter = 0;
     OutputNamesType resultQubitVals;
-    patterns.insert<BranchRewrite, CondBranchRewrite,
-                    GeneralRewrite<quake::HOp>, GeneralRewrite<quake::XOp>,
-                    GeneralRewrite<quake::YOp>, GeneralRewrite<quake::ZOp>,
-                    GeneralRewrite<quake::SOp>, GeneralRewrite<quake::TOp>,
-                    GeneralRewrite<quake::RxOp>, GeneralRewrite<quake::RyOp>,
-                    GeneralRewrite<quake::RzOp>, GeneralRewrite<quake::R1Op>,
-                    GeneralRewrite<quake::U3Op>, GeneralRewrite<quake::SwapOp>,
-                    GeneralRewrite<quake::PhasedRxOp>, BorrowWireRewrite,
-                    ResetRewrite, ReturnWireRewrite>(quakeTypeConverter,
-                                                     context);
+    patterns.insert<
+        BranchRewrite, CondBranchRewrite, GeneralRewrite<quake::HOp>,
+        GeneralRewrite<quake::XOp>, GeneralRewrite<quake::YOp>,
+        GeneralRewrite<quake::ZOp>, GeneralRewrite<quake::SOp>,
+        GeneralRewrite<quake::TOp>, GeneralRewrite<quake::RxOp>,
+        GeneralRewrite<quake::RyOp>, GeneralRewrite<quake::RzOp>,
+        GeneralRewrite<quake::R1Op>, GeneralRewrite<quake::U3Op>,
+        GeneralRewrite<quake::SwapOp>, GeneralRewrite<quake::PhasedRxOp>,
+        BorrowWireRewrite, ResetRewrite, ReturnWireRewrite,
+        GeneralRewrite<quake::CreateOp>, GeneralRewrite<quake::AnnihilateOp>>(
+        quakeTypeConverter, context);
     patterns.insert<MzRewrite>(quakeTypeConverter, resultCounter,
                                resultQubitVals, context);
     const bool isAdaptiveProfile = convertTo == "qir-adaptive";
@@ -509,6 +510,8 @@ struct WireSetToProfileQIRPrepPass
     addDecls("t", targ1Ty, targ1CtrlTy);
     addDecls("sdg", targ1Ty, targ1CtrlTy);
     addDecls("tdg", targ1Ty, targ1CtrlTy);
+    addDecls("create", targ1Ty, targ1CtrlTy);
+    addDecls("annihilate", targ1Ty, targ1CtrlTy);
     addBodyDecl("reset", targ1Ty);
 
     auto f64Ty = builder.getF64Type();

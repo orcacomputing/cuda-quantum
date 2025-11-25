@@ -1148,6 +1148,117 @@ class TwoTargetOp<string mnemonic, list<Trait> traits = []> :
     QuakeOperator<mnemonic, !listconcat([NumParameters<0>, NumTargets<2>],
                 traits)>;
 
+class QuakePhotonicOperator<string mnemonic, list<Trait> traits = [],
+                    dag extraArgs = (ins)>
+    : QuakeOp<mnemonic,
+        !listconcat([QuantumGate, AttrSizedOperandSegments, PhotonicOperatorInterface,
+          DeclareOpInterfaceMethods<MemoryEffectsOpInterface>], traits)> {
+
+  let arguments = !con(extraArgs, (ins
+    UnitAttr:$is_adj,
+    Variadic<AnyFloat>:$parameters,
+    Variadic<AnyQType>:$controls,
+    Variadic<AnyQTargetType>:$targets,
+    OptionalAttr<DenseBoolArrayAttr>:$negated_qubit_controls
+  ));
+  let results = (outs
+    Variadic<WireType>:$wires
+  );
+
+  let builders = [
+    OpBuilder<(ins "mlir::UnitAttr":$is_adj,
+                   "mlir::ValueRange":$parameters,
+                   "mlir::ValueRange":$controls,
+                   "mlir::ValueRange":$targets,
+                   "mlir::DenseBoolArrayAttr":$negates), [{
+      return build($_builder, $_state, mlir::TypeRange{}, is_adj, parameters,
+                   controls, targets, negates);
+    }]>,
+    OpBuilder<(ins "bool":$is_adj,
+                   "mlir::ValueRange":$parameters,
+                   "mlir::ValueRange":$controls,
+                   "mlir::ValueRange":$targets,
+                   "mlir::DenseBoolArrayAttr":$negates), [{
+      return build($_builder, $_state, mlir::TypeRange{}, is_adj, parameters,
+                   controls, targets, negates);
+    }]>,
+    OpBuilder<(ins "bool":$is_adj,
+                   "mlir::ValueRange":$parameters,
+                   "mlir::ValueRange":$controls,
+                   "mlir::ValueRange":$targets), [{
+      return build($_builder, $_state, is_adj, parameters, controls, targets,
+                   {});
+    }]>,
+    OpBuilder<(ins "mlir::ValueRange":$parameters,
+                   "mlir::ValueRange":$controls,
+                   "mlir::ValueRange":$targets), [{
+      return build($_builder, $_state, /*is_adj=*/false, parameters, controls,
+                   targets);
+    }]>,
+    OpBuilder<(ins "bool":$is_adj,
+                   "mlir::ValueRange":$controls,
+                   "mlir::ValueRange":$targets), [{
+      return build($_builder, $_state, is_adj, mlir::ValueRange{}, controls,
+                   targets);
+    }]>,
+    OpBuilder<(ins "mlir::ValueRange":$controls,
+                   "mlir::ValueRange":$targets), [{
+      return build($_builder, $_state, /*is_adj=*/false, controls, targets);
+    }]>,
+    OpBuilder<(ins "bool":$is_adj,
+                   "mlir::ValueRange":$targets), [{
+      return build($_builder, $_state, is_adj, mlir::ValueRange{}, targets);
+    }]>,
+    OpBuilder<(ins "mlir::ValueRange":$targets), [{
+      return build($_builder, $_state, /*is_adj=*/false, targets);
+    }]>
+  ];
+
+  let assemblyFormat = [{
+    ( `<` `adj` $is_adj^ `>` )? ( `(` $parameters^ `)` )?
+    (`[` $controls^ (`neg` $negated_qubit_controls^ )? `]`)?
+    $targets `:` functional-type(operands, results) attr-dict
+  }];
+
+  let hasVerifier = 1;
+
+  code extraClassDeclaration = [{
+    //===------------------------------------------------------------------===//
+    // MemoryEffects interface
+    //===------------------------------------------------------------------===//
+
+    void getEffectsImpl(mlir::SmallVectorImpl<mlir::SideEffects::EffectInstance<
+      mlir::MemoryEffects::Effect>> &effects) {
+      quake::getOperatorEffectsImpl(effects, getControls(), getTargets());
+    }
+
+    //===------------------------------------------------------------------===//
+    // Properties
+    //===------------------------------------------------------------------===//
+
+    bool isAdj() { return getIsAdj(); }
+
+    //===------------------------------------------------------------------===//
+    // Element Access
+    //===------------------------------------------------------------------===//
+
+    mlir::Value getParameter(unsigned i = 0u) { return getParameters()[i]; }
+
+    mlir::Value getTarget(unsigned i = 0u) { return getTargets()[i]; }
+
+    //===------------------------------------------------------------------===//
+    // Operator interface
+    //===------------------------------------------------------------------===//
+
+    using Matrix = mlir::SmallVectorImpl<std::complex<double>>;
+
+    void getOperatorMatrix(Matrix &matrix, size_t numLevels);
+  }];
+}
+
+class OneQuditTargetOp<string mnemonic, list<Trait> traits = []> :
+    QuakePhotonicOperator<mnemonic, !listconcat([NumParameters<0>, NumTargets<1>],
+                traits)>;
 //===----------------------------------------------------------------------===//
 // Unitary quantum transformations
 //===----------------------------------------------------------------------===//
@@ -1643,6 +1754,52 @@ def CustomUnitarySymbolOp :
     ( `<` `adj` $is_adj^ `>` )? ( `(` $parameters^ `)` )?
       (`[` $controls^ (`neg` $negated_qubit_controls^ )? `]`)?
       $targets `:` functional-type(operands, results) attr-dict
+  }];
+}
+
+def CreateOp : OneQuditTargetOp<"create"> {
+  let summary = "Add a photon C|0> -> |1>, C|1> -> |2>, C|2> -> |3>, ..., C|d> -> |d>";
+  let description = [{
+    Matrix representation:
+    ```
+    Create = | 0 0 0 ... 0 0 0|
+             | 1 0 0 ... 0 0 0|
+             | 0 1 0 ... 0 0 0|
+             | 0 0 1 ... 0 0 0|
+             | . . . ... . . .|
+             | 0 0 0 ... 1 0 0|
+             | 0 0 0 ... 0 1 1|
+    ```
+
+    Circuit symbol:
+    ```
+     ┌────────┐
+    ─┤ Create ├─
+     └────────┘
+    ```
+  }];
+}
+
+def AnnihilateOp : OneQuditTargetOp<"annihilate"> {
+  let summary = "Remove a photon A|0> -> |0>, A|1> -> |0>, A|2> -> |1>, ... A|d> -> |d - 1>,";
+  let description = [{
+    Matrix representation:
+    ```
+    Annihilate =  | 1 1 0 0 ... 0 0 0|
+                  | 0 0 1 0 ... 0 0 0|
+                  | 0 0 0 1 ... 0 0 0|
+                  | . . . . ... . . .|
+                  | 0 0 0 0 ... 0 1 0|
+                  | 0 0 0 0 ... 0 0 1|
+                  | 0 0 0 0 ... 0 0 0|
+    ```
+
+    Circuit symbol:
+    ```
+     ┌────────────┐
+    ─┤ Annihilate ├─
+     └────────────┘
+    ```
   }];
 }
 

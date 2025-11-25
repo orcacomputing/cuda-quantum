@@ -65,13 +65,17 @@ struct AppliedTensorOp {
 
 /// @brief Wrapper of cutensornetState_t to provide convenient API's for CUDA-Q
 /// simulator implementation.
-template <typename ScalarType = double, std::size_t numLevels = 2>
+template <typename ScalarType = double>
 class TensorNetState {
   using DataType = std::complex<ScalarType>;
   static constexpr cudaDataType_t cudaDataType =
       std::is_same_v<ScalarType, float> ? CUDA_C_32F : CUDA_C_64F;
 
 protected:
+  /// @brief The number of levels for the qudits
+  std::size_t m_numLevels = 2; // default to qubits
+
+  /// @brief The number of qubits in the state
   std::size_t m_numQubits;
 
   cutensornetHandle_t m_cutnHandle;
@@ -96,12 +100,12 @@ public:
 
   /// @brief Constructor
   TensorNetState(std::size_t numQubits, ScratchDeviceMem &inScratchPad,
-                 cutensornetHandle_t handle, std::mt19937 &randomEngine);
+                 cutensornetHandle_t handle, std::mt19937 &randomEngine, std::size_t &numLevels);
 
   /// @brief Constructor (specific basis state)
   TensorNetState(const std::vector<int> &basisState,
                  ScratchDeviceMem &inScratchPad, cutensornetHandle_t handle,
-                 std::mt19937 &randomEngine);
+                 std::mt19937 &randomEngine, std::size_t &numLevels);
 
   std::unique_ptr<TensorNetState> clone() const;
 
@@ -113,7 +117,7 @@ public:
   static std::unique_ptr<TensorNetState>
   createFromMpsTensors(const std::vector<MPSTensor> &mpsTensors,
                        ScratchDeviceMem &inScratchPad,
-                       cutensornetHandle_t handle, std::mt19937 &randomEngine);
+                       cutensornetHandle_t handle, std::mt19937 &randomEngine, std::size_t &numLevels);
 
   /// Reconstruct/initialize a tensor network state from a list of tensor
   /// operators.
@@ -121,7 +125,7 @@ public:
   createFromOpTensors(std::size_t numQubits,
                       const std::vector<AppliedTensorOp> &opTensors,
                       ScratchDeviceMem &inScratchPad,
-                      cutensornetHandle_t handle, std::mt19937 &randomEngine);
+                      cutensornetHandle_t handle, std::mt19937 &randomEngine, std::size_t &numLevels);
 
   // Create a tensor network state from the input state vector.
   // Note: this is not the most efficient mode of initialization. However, this
@@ -130,9 +134,11 @@ public:
   static std::unique_ptr<TensorNetState>
   createFromStateVector(std::span<std::complex<ScalarType>> stateVec,
                         ScratchDeviceMem &inScratchPad,
-                        cutensornetHandle_t handle, std::mt19937 &randomEngine);
+                        cutensornetHandle_t handle, std::mt19937 &randomEngine,
+                        std::size_t &numLevels);
+
   /// @brief Number of levels per qudit (d)
-  std::size_t getNumLevels() const { return numLevels; }
+  std::size_t getNumLevels() const { return m_numLevels; }
 
   /// @brief Apply a unitary gate
   /// @param controlQubits Controlled qubit operands
@@ -216,7 +222,8 @@ public:
 
   /// @brief Helper to reverse qubit order of the input state vector.
   static std::vector<std::complex<ScalarType>>
-  reverseQubitOrder(std::span<std::complex<ScalarType>> stateVec);
+  reverseQubitOrder(std::span<std::complex<ScalarType>> stateVec,
+                    std::size_t n_numLevels = 2);
 
   /// @brief Apply all the cached ops to the state.
   void applyCachedOps();
@@ -231,9 +238,9 @@ public:
   ~TensorNetState();
 
 private:
-  template <typename ScalarTy, std::size_t nLevels>
+  template <typename ScalarTy>
   friend class SimulatorMPS;
-  template <typename ScalarTy, std::size_t nLevels>
+  template <typename ScalarTy>
   friend class TensorNetSimulationState;
   /// Internal method to contract the tensor network.
   /// Returns device memory pointer and size (number of elements).

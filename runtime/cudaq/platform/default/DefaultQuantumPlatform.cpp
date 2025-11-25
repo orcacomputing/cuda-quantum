@@ -14,7 +14,9 @@
 #include "cudaq/Support/TargetConfigYaml.h"
 #include "cudaq/platform/qpu.h"
 #include "cudaq/platform/quantum_platform.h"
-#include "cudaq/qis/qubit_qis.h"
+// #include "cudaq/qis/qubit_qis.h"
+// #include "cudaq/qis/photonics_qis.h"
+// #include "cudaq/qis/managers/photonics/photonics_qis_cpu.h"
 #include "utils/cudaq_utils.h"
 #include <filesystem>
 #include <fstream>

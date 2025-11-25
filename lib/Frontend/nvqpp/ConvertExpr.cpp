@@ -1773,6 +1773,26 @@ bool QuakeBridgeVisitor::VisitCallExpr(clang::CallExpr *x) {
                                          reportNegateError, isAdjoint,
                                          isControl, /*paramCount=*/3);
 
+    if (funcName == "create")
+      return buildOp<quake::CreateOp>(builder, loc, args, negations,
+                                      reportNegateError, /*adjoint=*/false, isControl);
+
+    if (funcName == "annihilate")
+      return buildOp<quake::AnnihilateOp>(builder, loc, args, negations,
+                                          reportNegateError, /*adjoint=*/false,
+                                          isControl);
+
+    // if (funcName == "plus")
+    //   return buildOp<quake::PlusOp>(builder, loc, args, negations,
+    //                                 reportNegateError, isAdjoint, isControl);
+    // if (funcName == "phase_shift")
+    //   return buildOp<quake::PhaseShiftOp, Param>(builder, loc, args, negations,
+    //                                              reportNegateError, isAdjoint,
+    //                                              isControl);
+    // if (funcName == "beam_splitter")
+    //   return buildOp<quake::BeamSplitterOp, Param>(builder, loc, args,
+    //                                                negations, reportNegateError,
+    //                                                isAdjoint, isControl);
     // See if this is a custom unitary.
     std::string maybeUnitaryGenerator = funcName.str() + "_generator_";
     // Extract number of targets

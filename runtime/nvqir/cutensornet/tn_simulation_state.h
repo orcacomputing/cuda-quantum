@@ -18,16 +18,16 @@
 
 namespace nvqir {
 
-template <typename ScalarType = double, std::size_t numLevels = 2>
+template <typename ScalarType = double>
 class TensorNetSimulationState : public cudaq::SimulationState {
   static constexpr cudaDataType_t cudaDataType =
       std::is_same_v<ScalarType, float> ? CUDA_C_32F : CUDA_C_64F;
 
 public:
   TensorNetSimulationState(
-      std::unique_ptr<TensorNetState<ScalarType, numLevels>> inState,
+      std::unique_ptr<TensorNetState<ScalarType>> inState,
       ScratchDeviceMem &inScratchPad, cutensornetHandle_t cutnHandle,
-      std::mt19937 &randomEngine);
+      std::mt19937 &randomEngine, std::size_t &numLevels);
 
   TensorNetSimulationState(const TensorNetSimulationState &) = delete;
   TensorNetSimulationState &
@@ -82,7 +82,10 @@ public:
   }
 
 protected:
-  std::unique_ptr<TensorNetState<ScalarType, numLevels>> m_state;
+  /// @brief The number of levels for the qudits
+  std::size_t m_numLevels = 2; // default to qubits
+
+  std::unique_ptr<TensorNetState<ScalarType>> m_state;
   ScratchDeviceMem &scratchPad;
   cutensornetHandle_t m_cutnHandle;
   // Max number of qubits whereby the tensor network state should be contracted

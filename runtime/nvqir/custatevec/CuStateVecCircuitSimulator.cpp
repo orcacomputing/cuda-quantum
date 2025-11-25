@@ -153,7 +153,8 @@ protected:
   }
 
   /// @brief Increase the state size by the given number of qubits.
-  void addQubitsToState(std::size_t count, const void *stateIn) override {
+  void addQubitsToState(std::size_t count, const void *stateIn,
+                        std::size_t levels = 2) override {
     ScopedTraceWithContext("CuStateVecCircuitSimulator::addQubitsToState",
                            count);
     if (count == 0)

@@ -84,7 +84,9 @@ struct ApplyControlNegationsPass
         ReplaceNegativeControl<quake::RyOp>,
         ReplaceNegativeControl<quake::RzOp>,
         ReplaceNegativeControl<quake::R1Op>,
-        ReplaceNegativeControl<quake::ExpPauliOp>>(ctx);
+        ReplaceNegativeControl<quake::ExpPauliOp>,
+        ReplaceNegativeControl<quake::CreateOp>,
+        ReplaceNegativeControl<quake::AnnihilateOp>>(ctx);
     ConversionTarget target(*ctx);
     target.addLegalDialect<cudaq::cc::CCDialect, arith::ArithDialect,
                            LLVM::LLVMDialect>();

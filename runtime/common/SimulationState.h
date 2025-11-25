@@ -41,6 +41,9 @@ using state_data = std::variant<
 /// is to minimize data transfers for the state.
 class SimulationState {
 protected:
+  /// @brief The number of levels for the qudits
+  std::size_t m_numLevels = 2; // default to qubits
+
   /// @brief Utility method to inspect the state_data variant
   /// and extract the data pointer and size.
   template <typename T, typename ScalarType = double>

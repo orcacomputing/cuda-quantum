@@ -45,11 +45,12 @@ private:
 
 protected:
   void allocateQudit(const cudaq::QuditInfo &q) override {
-    requestedAllocations.emplace_back(2, q.id);
+    requestedAllocations.emplace_back(q.levels, q.id);
   }
 
   void allocateQudits(const std::vector<cudaq::QuditInfo> &qudits) override {
-    simulator()->allocateQubits(qudits.size());
+    simulator()->allocateQubits(qudits.size(), nullptr,
+                               cudaq::simulation_precision::fp32, qudits[0].levels);
   }
 
   void initializeState(const std::vector<cudaq::QuditInfo> &targets,
@@ -181,6 +182,15 @@ protected:
         .Case("x", [&]() { simulator()->x(localC, localT[0]); })
         .Case("y", [&]() { simulator()->y(localC, localT[0]); })
         .Case("z", [&]() { simulator()->z(localC, localT[0]); })
+        .Case("create",
+              [&]() {
+                simulator()->create(targets[0].levels, localC, localT[0]);
+              })
+        .Case("annihilate",
+              [&]() {
+                simulator()->annihilate(targets[0].levels, localC,
+                                        localT[0]);
+              })
         .Case("rx",
               [&]() { simulator()->rx(parameters[0], localC, localT[0]); })
         .Case("ry",
