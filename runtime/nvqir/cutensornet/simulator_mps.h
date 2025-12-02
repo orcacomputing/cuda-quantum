@@ -59,7 +59,8 @@ public:
           "[SimulatorMPS simulator] Incompatible state input");
     if (!m_state) {
       m_state = TensorNetState<ScalarType>::createFromMpsTensors(
-          casted->getMpsTensors(), scratchPad, m_cutnHandle, m_randomEngine, m_numLevels);
+          casted->getMpsTensors(), scratchPad, m_cutnHandle, m_randomEngine,
+          m_numLevels);
     } else {
       // Expand an existing state: Append MPS tensors
       // Factor the existing state
@@ -341,7 +342,8 @@ public:
     return simulator.get();
   }
 
-  void addQubitsToState(std::size_t numQubits, const void *ptr, std::size_t levels = 2) override {
+  void addQubitsToState(std::size_t numQubits, const void *ptr,
+                        std::size_t levels = 2) override {
     LOG_API_TIME();
     if (!m_state) {
       if (!ptr) {
@@ -430,8 +432,8 @@ public:
           m_settings.maxBond, m_settings.absCutoff, m_settings.relCutoff,
           m_settings.svdAlgo, m_settings.gaugeOption);
       return std::make_unique<MPSSimulationState<ScalarType>>(
-          std::move(m_state), tensors, scratchPad, m_cutnHandle,
-          m_randomEngine, m_numLevels);
+          std::move(m_state), tensors, scratchPad, m_cutnHandle, m_randomEngine,
+          m_numLevels);
     }
 
     auto [d_tensor, numElements] = m_state->contractStateVectorInternal({});

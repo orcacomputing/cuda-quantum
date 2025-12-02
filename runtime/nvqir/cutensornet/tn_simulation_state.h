@@ -24,10 +24,10 @@ class TensorNetSimulationState : public cudaq::SimulationState {
       std::is_same_v<ScalarType, float> ? CUDA_C_32F : CUDA_C_64F;
 
 public:
-  TensorNetSimulationState(
-      std::unique_ptr<TensorNetState<ScalarType>> inState,
-      ScratchDeviceMem &inScratchPad, cutensornetHandle_t cutnHandle,
-      std::mt19937 &randomEngine, std::size_t &numLevels);
+  TensorNetSimulationState(std::unique_ptr<TensorNetState<ScalarType>> inState,
+                           ScratchDeviceMem &inScratchPad,
+                           cutensornetHandle_t cutnHandle,
+                           std::mt19937 &randomEngine, std::size_t &numLevels);
 
   TensorNetSimulationState(const TensorNetSimulationState &) = delete;
   TensorNetSimulationState &

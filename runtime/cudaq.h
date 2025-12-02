@@ -11,7 +11,6 @@
 #include "common/NoiseModel.h"
 #include "cudaq/host_config.h"
 #include "cudaq/qis/qubit_qis.h"
-// #include "cudaq/qis/photonic_qis.h"
 
 #include <string>
 #include <tuple>

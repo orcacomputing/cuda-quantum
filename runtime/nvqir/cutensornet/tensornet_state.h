@@ -100,7 +100,8 @@ public:
 
   /// @brief Constructor
   TensorNetState(std::size_t numQubits, ScratchDeviceMem &inScratchPad,
-                 cutensornetHandle_t handle, std::mt19937 &randomEngine, std::size_t &numLevels);
+                 cutensornetHandle_t handle, std::mt19937 &randomEngine,
+                 std::size_t &numLevels);
 
   /// @brief Constructor (specific basis state)
   TensorNetState(const std::vector<int> &basisState,
@@ -117,15 +118,15 @@ public:
   static std::unique_ptr<TensorNetState>
   createFromMpsTensors(const std::vector<MPSTensor> &mpsTensors,
                        ScratchDeviceMem &inScratchPad,
-                       cutensornetHandle_t handle, std::mt19937 &randomEngine, std::size_t &numLevels);
+                       cutensornetHandle_t handle, std::mt19937 &randomEngine,
+                       std::size_t &numLevels);
 
   /// Reconstruct/initialize a tensor network state from a list of tensor
   /// operators.
-  static std::unique_ptr<TensorNetState>
-  createFromOpTensors(std::size_t numQubits,
-                      const std::vector<AppliedTensorOp> &opTensors,
-                      ScratchDeviceMem &inScratchPad,
-                      cutensornetHandle_t handle, std::mt19937 &randomEngine, std::size_t &numLevels);
+  static std::unique_ptr<TensorNetState> createFromOpTensors(
+      std::size_t numQubits, const std::vector<AppliedTensorOp> &opTensors,
+      ScratchDeviceMem &inScratchPad, cutensornetHandle_t handle,
+      std::mt19937 &randomEngine, std::size_t &numLevels);
 
   // Create a tensor network state from the input state vector.
   // Note: this is not the most efficient mode of initialization. However, this

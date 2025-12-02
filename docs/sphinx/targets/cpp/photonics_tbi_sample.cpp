@@ -7,18 +7,13 @@
 #include <cudaq.h>
 #include <cudaq/photonics.h>
 #include <iostream>
-#include <chrono>
 
 // Global variables
 static constexpr std::size_t one = 1;
 
-static constexpr std::size_t n_modes = 16;
-static constexpr std::array<std::size_t, n_modes> input_state = [] {
-  std::array<std::size_t, n_modes> arr{};
-  for (std::size_t i = 0; i < n_modes; ++i)
-    arr[i] = i % 2;
-  return arr;
-}();
+static constexpr std::size_t n_modes = 8;
+static constexpr std::array<std::size_t, n_modes> input_state = {1, 0, 1, 0,
+                                                                 1, 0, 1, 0};
 
 static constexpr std::size_t d =
     std::accumulate(input_state.begin(), input_state.end(), one);
@@ -67,14 +62,10 @@ int main() {
   std::vector<double> ps_angles =
       cudaq::linspace(M_PI / 3, M_PI / 5, n_beam_splitters);
 
-  auto start = std::chrono::high_resolution_clock::now();
   auto counts = cudaq::sample(1000000, TBI{}, bs_angles, ps_angles, input_state,
                               loop_lengths);
 
   counts.dump();
-  auto end = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> diff = end - start;
-  std::cout << "Execution time: " << diff.count() << " seconds\n";
 
   return 0;
 }

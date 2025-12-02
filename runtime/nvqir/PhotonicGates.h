@@ -34,7 +34,8 @@ std::vector<std::complex<Scalar>>
 extract_flat_matrix(cudaq::complex_matrix::EigenMatrix &matrix) {
   auto *flat_matrix_ptr = matrix.data();
   std::size_t size = matrix.rows() * matrix.cols();
-  std::vector<std::complex<Scalar>> flat_matrix(flat_matrix_ptr, flat_matrix_ptr + size);
+  std::vector<std::complex<Scalar>> flat_matrix(flat_matrix_ptr,
+                                                flat_matrix_ptr + size);
   return flat_matrix;
 };
 
@@ -111,7 +112,8 @@ displacement_matrix(std::size_t numLevels,
 };
 
 template <typename Scalar>
-cudaq::complex_matrix::EigenMatrix phase_shift_matrix(std::size_t numLevels, Scalar &phi) {
+cudaq::complex_matrix::EigenMatrix phase_shift_matrix(std::size_t numLevels,
+                                                      Scalar &phi) {
   // Returns the phase shift operator matrix.
   //  Args:
   //   - numLevels: Number of levels in the qudit.

@@ -38,8 +38,8 @@ public:
   MPSSimulationState(std::unique_ptr<TensorNetState<ScalarType>> inState,
                      const std::vector<MPSTensor> &mpsTensors,
                      ScratchDeviceMem &inScratchPad,
-                     cutensornetHandle_t cutnHandle,
-                     std::mt19937 &randomEngine, std::size_t &numLevels);
+                     cutensornetHandle_t cutnHandle, std::mt19937 &randomEngine,
+                     std::size_t &numLevels);
 
   MPSSimulationState(const MPSSimulationState &) = delete;
   MPSSimulationState &operator=(const MPSSimulationState &) = delete;

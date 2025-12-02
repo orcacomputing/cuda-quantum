@@ -430,7 +430,7 @@ public:
 
   /// @brief Measure the qudit with given index
   virtual std::size_t mpnr(const std::size_t levels,
-                         const std::size_t quditIdx) = 0;
+                           const std::size_t quditIdx) = 0;
 
   /// @brief Measure operation. Here we check what the current execution
   /// context is. If the context is sample, then we do nothing but store the
@@ -441,7 +441,7 @@ public:
   /// full state sampling. We also return the digit result. If no execution
   /// context, just measure, collapse, and return the digit.
   virtual std::size_t mpnr(const std::size_t levels, const std::size_t quditIdx,
-                         const std::string &registerName) = 0;
+                           const std::string &registerName) = 0;
   ////////////////////////////////////////////////////////////////////////////////
   virtual void measureSpinOp(const cudaq::spin_op &op) = 0;
 
@@ -1689,7 +1689,7 @@ public:
 
   ////////////////////////////////////////////////////////////////////////////////
   std::size_t mpnr(const std::size_t levels,
-                 const std::size_t quditIdx) override {
+                   const std::size_t quditIdx) override {
     return mpnr(levels, quditIdx, "");
   }
 
@@ -1702,7 +1702,7 @@ public:
   /// full state sampling. We also return the digit result. If no execution
   /// context, just measure, collapse, and return the digit.
   std::size_t mpnr(const std::size_t levels, const std::size_t quditIdx,
-                 const std::string &registerName) override {
+                   const std::string &registerName) override {
     // Flush the Gate Queue
     flushGateQueue();
 

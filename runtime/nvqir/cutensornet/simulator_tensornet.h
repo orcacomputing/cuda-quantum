@@ -20,8 +20,7 @@ extern "C" nvqir::CircuitSimulator *getCircuitSimulator_tensornet();
 
 namespace nvqir {
 template <typename ScalarType = double>
-class SimulatorTensorNet
-    : public SimulatorTensorNetBase<ScalarType> {
+class SimulatorTensorNet : public SimulatorTensorNetBase<ScalarType> {
   using SimulatorTensorNetBase<ScalarType>::m_cutnHandle;
   using SimulatorTensorNetBase<
       ScalarType>::m_maxControlledRankForFullTensorExpansion;
@@ -86,10 +85,12 @@ public:
   std::unique_ptr<cudaq::SimulationState> getSimulationState() override {
     LOG_API_TIME();
     return std::make_unique<TensorNetSimulationState<ScalarType>>(
-        std::move(m_state), scratchPad, m_cutnHandle, m_randomEngine, m_numLevels);
+        std::move(m_state), scratchPad, m_cutnHandle, m_randomEngine,
+        m_numLevels);
   }
 
-  void addQubitsToState(std::size_t numQubits, const void *ptr, std::size_t levels = 2) override {
+  void addQubitsToState(std::size_t numQubits, const void *ptr,
+                        std::size_t levels = 2) override {
     LOG_API_TIME();
     if (!m_state) {
       if (!ptr) {
@@ -120,8 +121,7 @@ public:
   addQubitsToState(const cudaq::SimulationState &in_state) override {
     LOG_API_TIME();
     const TensorNetSimulationState<ScalarType> *const casted =
-        dynamic_cast<const TensorNetSimulationState<ScalarType> *>(
-            &in_state);
+        dynamic_cast<const TensorNetSimulationState<ScalarType> *>(&in_state);
     if (!casted)
       throw std::invalid_argument(
           "[Tensornet simulator] Incompatible state input");
