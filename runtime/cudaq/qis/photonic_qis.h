@@ -230,13 +230,6 @@ void oneQuditSingleParameterApply(ScalarAngle angle, QuditArgs &...args) {
 
 CUDAQ_QIS_PHOTONIC_PARAM_ONE_TARGET_(phase_shift)
 
-// /// @brief The `phase shift` gate
-// template <std::size_t Levels>
-// void phase_shift(cudaq::qudit<Levels> &q, const double &phi) {
-//   cudaq::getExecutionManager()->apply("phase_shift", {phi}, {},
-//                                       {{q.n_levels(), q.id()}});
-// }
-
 /// @brief The `beam splitter` gate
 template <std::size_t Levels>
 void beam_splitter(const double &theta, cudaq::qudit<Levels> &q,
@@ -260,78 +253,5 @@ std::vector<int> mpnr(cudaq::qvector<Levels> &q) {
     ret.emplace_back(mpnr(qq));
   return ret;
 }
-
-// /// @brief Measure an individual qudit, return 0,1,2 as `string`
-// inline measure_result mz(qudit &q) {
-//   return getExecutionManager()->measure(QuditInfo{q.n_levels(), q.id()});
-// }
-
-// inline void reset(qudit &q) {
-//   getExecutionManager()->reset({q.n_levels(), q.id()});
-// }
-
-// // Measure all qubits in the range, return vector of 0,1
-// #if CUDAQ_USE_STD20
-// template <typename QubitRange>
-//   requires std::ranges::range<QubitRange>
-// #else
-// template <
-//     typename QubitRange,
-//     typename = std::enable_if_t<!std::is_same_v<
-//         std::remove_reference_t<std::remove_cv_t<QubitRange>>,
-//         cudaq::qubit>>>
-// #endif
-// std::vector<measure_result> mz(QubitRange &q) {
-//   std::vector<measure_result> b;
-//   for (auto &qq : q) {
-//     b.push_back(mz(qq));
-//   }
-//   return b;
-// }
-
-// template <std::size_t Levels>
-// std::vector<measure_result> mz(const qview<Levels> &q) {
-//   std::vector<measure_result> b;
-//   for (auto &qq : q) {
-//     b.emplace_back(mz(qq));
-//   }
-//   return b;
-// }
-
-// template <typename... Qs>
-// std::vector<measure_result> mz(qubit &q, Qs &&...qs);
-
-// #if CUDAQ_USE_STD20
-// template <typename QubitRange, typename... Qs>
-//   requires(std::ranges::range<QubitRange>)
-// #else
-// template <
-//     typename QubitRange, typename... Qs,
-//     typename = std::enable_if_t<!std::is_same_v<
-//         std::remove_reference_t<std::remove_cv_t<QubitRange>>,
-//         cudaq::qubit>>>
-// #endif
-// std::vector<measure_result> mz(QubitRange &qr, Qs &&...qs) {
-//   std::vector<measure_result> result = mz(qr);
-//   auto rest = mz(std::forward<Qs>(qs)...);
-//   if constexpr (std::is_same_v<decltype(rest), measure_result>) {
-//     result.push_back(rest);
-//   } else {
-//     result.insert(result.end(), rest.begin(), rest.end());
-//   }
-//   return result;
-// }
-
-// template <typename... Qs>
-// std::vector<measure_result> mz(qubit &q, Qs &&...qs) {
-//   std::vector<measure_result> result = {mz(q)};
-//   auto rest = mz(std::forward<Qs>(qs)...);
-//   if constexpr (std::is_same_v<decltype(rest), measure_result>) {
-//     result.push_back(rest);
-//   } else {
-//     result.insert(result.end(), rest.begin(), rest.end());
-//   }
-//   return result;
-// }
 
 } // namespace cudaq
