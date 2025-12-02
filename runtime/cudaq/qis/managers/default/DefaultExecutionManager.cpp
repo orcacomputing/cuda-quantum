@@ -45,11 +45,13 @@ private:
 
 protected:
   void allocateQudit(const cudaq::QuditInfo &q) override {
-    requestedAllocations.emplace_back(2, q.id);
+    requestedAllocations.emplace_back(q.levels, q.id);
   }
 
   void allocateQudits(const std::vector<cudaq::QuditInfo> &qudits) override {
-    simulator()->allocateQubits(qudits.size());
+    simulator()->allocateQubits(qudits.size(), nullptr,
+                                cudaq::simulation_precision::fp32,
+                                qudits[0].levels);
   }
 
   void initializeState(const std::vector<cudaq::QuditInfo> &targets,
@@ -181,12 +183,25 @@ protected:
         .Case("x", [&]() { simulator()->x(localC, localT[0]); })
         .Case("y", [&]() { simulator()->y(localC, localT[0]); })
         .Case("z", [&]() { simulator()->z(localC, localT[0]); })
+        .Case("create",
+              [&]() {
+                simulator()->create(targets[0].levels, localC, localT[0]);
+              })
+        .Case("annihilate",
+              [&]() {
+                simulator()->annihilate(targets[0].levels, localC, localT[0]);
+              })
         .Case("rx",
               [&]() { simulator()->rx(parameters[0], localC, localT[0]); })
         .Case("ry",
               [&]() { simulator()->ry(parameters[0], localC, localT[0]); })
         .Case("rz",
               [&]() { simulator()->rz(parameters[0], localC, localT[0]); })
+        .Case("phase_shift",
+              [&]() {
+                simulator()->phase_shift(targets[0].levels, parameters[0],
+                                         localC, localT[0]);
+              })
         .Case("s", [&]() { simulator()->s(localC, localT[0]); })
         .Case("t", [&]() { simulator()->t(localC, localT[0]); })
         .Case("sdg", [&]() { simulator()->sdg(localC, localT[0]); })
@@ -195,6 +210,11 @@ protected:
               [&]() { simulator()->r1(parameters[0], localC, localT[0]); })
         .Case("u1",
               [&]() { simulator()->u1(parameters[0], localC, localT[0]); })
+        .Case("beam_splitter",
+              [&]() {
+                simulator()->beam_splitter(targets[0].levels, parameters[0],
+                                           localC, localT[0], localT[1]);
+              })
         .Case("u3",
               [&]() {
                 simulator()->u3(parameters[0], parameters[1], parameters[2],
@@ -247,7 +267,10 @@ protected:
   int measureQudit(const cudaq::QuditInfo &q,
                    const std::string &registerName) override {
     flushRequestedAllocations();
-    return simulator()->mz(q.id, registerName);
+    if (q.levels == 2)
+      return simulator()->mz(q.id, registerName);
+    else
+      return simulator()->mpnr(q.levels, q.id, registerName);
   }
 
   void flushGateQueue() override {

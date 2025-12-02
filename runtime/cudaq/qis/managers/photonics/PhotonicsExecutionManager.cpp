@@ -9,6 +9,7 @@
 #include "cudaq/operators.h"
 #include "cudaq/qis/managers/BasicExecutionManager.h"
 #include "cudaq/utils/cudaq_utils.h"
+#include "nvqir/PhotonicGates.h"
 #include "qpp.h"
 #include <cmath>
 #include <complex>
@@ -114,6 +115,21 @@ private:
   /// @brief Qudits to be sampled
   std::vector<cudaq::QuditInfo> sampleQudits;
 
+  /// @brief Convert internal qudit index to Q++ qudit index.
+  ///
+  /// In Q++, qudits are indexed from left to right, and thus q0 is the leftmost
+  /// qudit. Internally, in CUDA-Q, qudits are index from right to left,
+  /// hence q0 is the rightmost qudit. Example:
+  /// ```
+  ///   Q++ indices:  0  1  2  3
+  ///                |0>|0>|0>|0>
+  ///                 3  2  1  0 : CUDA-Q indices
+  /// ```
+  std::size_t convertQuditIndex(std::size_t quditIndex) {
+    assert(state.size() > 0 && "The state is empty, and thus has no qudits");
+    return std::log2(state.size()) / std::log2(levels) - quditIndex - 1;
+  }
+
 protected:
   /// @brief Qudit allocation method: a zeroState is first initialized, the
   /// following ones are added via kron operators
@@ -173,7 +189,7 @@ protected:
     if (executionContext) {
       std::vector<std::size_t> ids;
       for (auto &s : sampleQudits) {
-        ids.push_back(s.id);
+        ids.push_back(convertQuditIndex(s.id));
       }
       if (executionContext->name == "sample") {
         CUDAQ_INFO("Sampling");
@@ -199,7 +215,8 @@ protected:
         // If here, then we care about the result qudit, so compute it.
         for (auto &q : sampleQudits) {
           const auto measurement_tuple = qpp::measure(
-              state, qpp::cmat::Identity(q.levels, q.levels), {q.id},
+              state, qpp::cmat::Identity(q.levels, q.levels),
+              {convertQuditIndex(q.id)},
               /*qudit dimension=*/q.levels, /*destructive measmt=*/false);
           const auto measurement_result = std::get<qpp::RES>(measurement_tuple);
           const auto &post_meas_states = std::get<qpp::ST>(measurement_tuple);
@@ -238,7 +255,8 @@ protected:
 
     // If here, then we care about the result qudit, so compute it.
     const auto measurement_tuple = qpp::measure(
-        state, qpp::cmat::Identity(q.levels, q.levels), {q.id},
+        state, qpp::cmat::Identity(q.levels, q.levels),
+        {convertQuditIndex(q.id)},
         /*qudit dimension=*/q.levels, /*destructive measmt=*/false);
     const auto measurement_result = std::get<qpp::RES>(measurement_tuple);
     const auto &post_meas_states = std::get<qpp::ST>(measurement_tuple);
@@ -246,7 +264,8 @@ protected:
     state = Eigen::Map<const qpp::ket>(collapsed_state.data(),
                                        collapsed_state.size());
 
-    CUDAQ_INFO("Measured qubit {} -> {}", q.id, measurement_result);
+    CUDAQ_INFO("Measured qubit {} -> {}", convertQuditIndex(q.id),
+               measurement_result);
     return measurement_result;
   }
 
@@ -256,140 +275,37 @@ protected:
   /// @brief Method for performing qudit reset.
   void resetQudit(const cudaq::QuditInfo &id) override {}
 
-  /// @brief Returns a precomputed factorial for n up tp 30
-  double _fast_factorial(int n) {
-    static std::vector<double> FACTORIAL_TABLE = {
-        1.,
-        1.,
-        2.,
-        6.,
-        24.,
-        120.,
-        720.,
-        5040.,
-        40320.,
-        362880.,
-        3628800.,
-        39916800.,
-        479001600.,
-        6227020800.,
-        87178291200.,
-        1307674368000.,
-        20922789888000.,
-        355687428096000.,
-        6402373705728000.,
-        121645100408832000.,
-        2432902008176640000.,
-        51090942171709440000.,
-        1124000727777607680000.,
-        25852016738884976640000.,
-        620448401733239439360000.,
-        15511210043330985984000000.,
-        403291461126605635584000000.,
-        10888869450418352160768000000.,
-        304888344611713860501504000000.,
-        8841761993739701954543616000000.,
-        265252859812191058636308480000000.,
-    };
-    if (n >
-        30) { // We do not expect to get 30 photons in the loop at the same time
-      throw std::invalid_argument("received invalid value, n <= 30");
-    }
-    return FACTORIAL_TABLE[n];
-  }
-
-  /// @brief Computes a single element in the matrix representing a beam
-  /// splitter gate
-  double _calc_beam_splitter_elem(int N1, int N2, int n1, int n2,
-                                  double theta) {
-
-    const double t = cos(theta); // transmission coefficient
-    const double r = sin(theta); // reflection coefficient
-    double sum = 0;
-    for (int k = 0; k <= n1; ++k) {
-      int l = N1 - k;
-      if (l >= 0 && l <= n2) {
-        double term1 = pow(r, (n1 - k + l)) * pow(t, (n2 + k - l));
-        if (term1 == 0) {
-          continue;
-        }
-        double term2 = pow((-1), (l)) *
-                       (sqrt(_fast_factorial(n1)) * sqrt(_fast_factorial(n2)) *
-                        sqrt(_fast_factorial(N1)) * sqrt(_fast_factorial(N2)));
-        double term3 = (_fast_factorial(k) * _fast_factorial(n1 - k) *
-                        _fast_factorial(l) * _fast_factorial(n2 - l));
-        double term = term1 * term2 / term3;
-        sum += term;
-      } else {
-        continue;
-      }
-    }
-
-    return sum;
-  }
-
-  /// @brief Computes matrix representing a beam splitter gate
-  void beam_splitter(const double theta, qpp::cmat &BS) {
-    int d = sqrt(BS.rows());
-    //     """Returns a matrix representing a beam splitter
-    for (int n1 = 0; n1 < d; ++n1) {
-      for (int n2 = 0; n2 < d; ++n2) {
-        int nxx = n1 + n2;
-        int nxd = std::min(nxx + 1, d);
-        for (int N1 = 0; N1 < nxd; ++N1) {
-          int N2 = nxx - N1;
-          if (N2 >= nxd) {
-            continue;
-          } else {
-
-            BS(n1 * d + n2, N1 * d + N2) =
-                _calc_beam_splitter_elem(N1, N2, n1, n2, theta);
-          }
-        }
-      }
-    }
-  }
-
 public:
   PhotonicsExecutionManager() {
-
-    instructions.emplace("create", [&](const Instruction &inst) {
-      auto &[gateName, params, controls, qudits, spin_op] = inst;
-      auto target = qudits[0];
-      int d = target.levels;
-      qpp::cmat u{qpp::cmat::Zero(d, d)};
-      u(d - 1, d - 1) = 1;
-      for (int i = 1; i < d; i++) {
-        u(i, i - 1) = 1;
-      }
-      CUDAQ_INFO("Applying create on {}<{}>", target.id, target.levels);
-      state = qpp::apply(state, u, {target.id}, target.levels);
-    });
 
     instructions.emplace("annihilate", [&](const Instruction &inst) {
       auto &[gateName, params, controls, qudits, spin_op] = inst;
       auto target = qudits[0];
-      int d = target.levels;
-      qpp::cmat u{qpp::cmat::Zero(d, d)};
-      u(0, 0) = 1;
-      for (int i = 0; i < d - 1; i++) {
-        u(i, i + 1) = 1;
-      }
-      CUDAQ_INFO("Applying annihilate on {}<{}>", target.id, target.levels);
-      state = qpp::apply(state, u, {target.id}, target.levels);
+      size_t d = target.levels;
+      auto u = nvqir::annihilate_matrix<double>(d);
+      CUDAQ_INFO("Applying annihilate on {}<{}>", convertQuditIndex(target.id),
+                 target.levels);
+      state = qpp::apply(state, u, {convertQuditIndex(target.id)}, d);
+    });
+
+    instructions.emplace("create", [&](const Instruction &inst) {
+      auto &[gateName, params, controls, qudits, spin_op] = inst;
+      auto target = qudits[0];
+      size_t d = target.levels;
+      auto u = nvqir::create_matrix<double>(d);
+      CUDAQ_INFO("Applying create on {}<{}>", convertQuditIndex(target.id),
+                 target.levels);
+      state = qpp::apply(state, u, {convertQuditIndex(target.id)}, d);
     });
 
     instructions.emplace("plus", [&](const Instruction &inst) {
       auto &[gateName, params, controls, qudits, spin_op] = inst;
       auto target = qudits[0];
-      int d = target.levels;
-      qpp::cmat u{qpp::cmat::Zero(d, d)};
-      u(0, d - 1) = 1;
-      for (int i = 1; i < d; i++) {
-        u(i, i - 1) = 1;
-      }
-      CUDAQ_INFO("Applying plus on {}<{}>", target.id, target.levels);
-      state = qpp::apply(state, u, {target.id}, target.levels);
+      size_t d = target.levels;
+      auto u = nvqir::plus_matrix<double>(d);
+      CUDAQ_INFO("Applying plus on {}<{}>", convertQuditIndex(target.id),
+                 target.levels);
+      state = qpp::apply(state, u, {convertQuditIndex(target.id)}, d);
     });
 
     instructions.emplace("beam_splitter", [&](const Instruction &inst) {
@@ -397,26 +313,26 @@ public:
       auto target1 = qudits[0];
       auto target2 = qudits[1];
       size_t d = target1.levels;
-      const double theta = params[0];
-      qpp::cmat BS{qpp::cmat::Zero(d * d, d * d)};
-      beam_splitter(theta, BS);
-      CUDAQ_INFO("Applying beam_splitter on {}<{}> and {}<{}>", target1.id,
-                 target1.levels, target2.id, target2.levels);
-      state = qpp::apply(state, BS, {target1.id, target2.id}, d);
+      double theta = params[0];
+      auto BS = nvqir::beam_splitter_matrix<double>(d, theta);
+      CUDAQ_INFO("Applying beam_splitter on {}<{}> and {}<{}>",
+                 convertQuditIndex(target1.id), target1.levels,
+                 convertQuditIndex(target2.id), target2.levels);
+      state = qpp::apply(
+          state, BS,
+          {convertQuditIndex(target1.id), convertQuditIndex(target2.id)}, d);
     });
 
     instructions.emplace("phase_shift", [&](const Instruction &inst) {
       auto &[gateName, params, controls, qudits, spin_op] = inst;
       auto target = qudits[0];
       size_t d = target.levels;
-      const double phi = params[0];
-      qpp::cmat PS{qpp::cmat::Identity(d, d)};
-      const std::complex<double> i(0.0, 1.0);
-      for (size_t n = 0; n < d; n++) {
-        PS(n, n) = std::exp(n * phi * i);
-      }
-      CUDAQ_INFO("Applying phase_shift on {}<{}>", target.id, target.levels);
-      state = qpp::apply(state, PS, {target.id}, target.levels);
+      double phi = params[0];
+      qpp::cmat PS = nvqir::phase_shift_matrix<double>(d, phi);
+      CUDAQ_INFO("Applying phase_shift on {}<{}>", convertQuditIndex(target.id),
+                 target.levels);
+      state =
+          qpp::apply(state, PS, {convertQuditIndex(target.id)}, target.levels);
     });
   }
 

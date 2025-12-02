@@ -222,7 +222,8 @@ protected:
   void addQubitToState() override { addQubitsToState(1); }
 
   void addQubitsToState(std::size_t qubitCount,
-                        const void *stateDataIn = nullptr) override {
+                        const void *stateDataIn = nullptr,
+                        std::size_t levels = 2) override {
     if (qubitCount == 0)
       return;
 

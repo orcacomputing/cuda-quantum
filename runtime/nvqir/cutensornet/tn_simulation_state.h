@@ -24,10 +24,10 @@ class TensorNetSimulationState : public cudaq::SimulationState {
       std::is_same_v<ScalarType, float> ? CUDA_C_32F : CUDA_C_64F;
 
 public:
-  TensorNetSimulationState(std::unique_ptr<TensorNetState<ScalarType>> inState,
-                           ScratchDeviceMem &inScratchPad,
-                           cutensornetHandle_t cutnHandle,
-                           std::mt19937 &randomEngine);
+  TensorNetSimulationState(
+      std::unique_ptr<TensorNetState<ScalarType>> inState,
+      ScratchDeviceMem &inScratchPad, cutensornetHandle_t cutnHandle,
+      std::mt19937 &randomEngine, std::size_t &numLevels);
 
   TensorNetSimulationState(const TensorNetSimulationState &) = delete;
   TensorNetSimulationState &
@@ -82,6 +82,9 @@ public:
   }
 
 protected:
+  /// @brief The number of levels for the qudits
+  std::size_t m_numLevels = 2; // default to qubits
+
   std::unique_ptr<TensorNetState<ScalarType>> m_state;
   ScratchDeviceMem &scratchPad;
   cutensornetHandle_t m_cutnHandle;

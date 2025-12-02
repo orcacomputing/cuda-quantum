@@ -13,7 +13,7 @@ struct photonicsKernel {
     create(qumodes[0]);
     create(qumodes[1]);
     create(qumodes[1]);
-    mz(qumodes);
+    mpnr(qumodes);
   }
 };
 

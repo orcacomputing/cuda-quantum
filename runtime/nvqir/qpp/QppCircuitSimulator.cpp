@@ -192,7 +192,8 @@ protected:
   /// @brief Override the default sized allocation of qubits
   /// here to be a bit more efficient than the default implementation
   void addQubitsToState(std::size_t qubitCount,
-                        const void *stateDataIn = nullptr) override {
+                        const void *stateDataIn = nullptr,
+                        std::size_t levels = 2) override {
     if (qubitCount == 0)
       return;
 
@@ -286,6 +287,14 @@ protected:
     }
     CUDAQ_INFO("Measured qubit {} -> {}", qubitIdx, measurement_result);
     return measurement_result == 1 ? true : false;
+  }
+
+  /// @brief Measure operation
+  /// @return
+  int measureQudit(const std::size_t levels,
+                   const std::size_t quditIdx) override {
+    throw std::runtime_error(
+        "[qpp target] Qudit measurement is not supported.");
   }
 
   QubitOrdering getQubitOrdering() const override { return QubitOrdering::msb; }

@@ -5,11 +5,11 @@ cudaq.set_target("orca-photonics")
 
 @cudaq.kernel
 def photonicsKernel():
-    qutrits = [qudit(3) for _ in range(2)]
-    create(qutrits[0])
-    create(qutrits[1])
-    create(qutrits[1])
-    mz(qutrits)
+    qumodes = [qudit(3) for _ in range(2)]
+    create(qumodes[0])
+    create(qumodes[1])
+    create(qumodes[1])
+    mpnr(qumodes)
 
 
 counts = cudaq.sample(photonicsKernel)

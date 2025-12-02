@@ -37,6 +37,15 @@ protected:
     return measure;
   }
 
+  /// @brief Measure the qubit and return the result. Collapse the
+  /// state vector.
+  int measureQudit(const std::size_t levels, const std::size_t index) override {
+    assert(choice);
+    auto measure = choice();
+    CUDAQ_INFO("Measure of {} returned {}", index, measure);
+    return measure;
+  }
+
 public:
   ResourceCounter() {
     // Populate the correct name so it is printed correctly during

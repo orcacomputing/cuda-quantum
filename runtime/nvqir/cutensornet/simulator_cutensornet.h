@@ -16,6 +16,7 @@ namespace nvqir {
 /// @brief Base class of `cutensornet` simulator backends
 template <typename ScalarType = double>
 class SimulatorTensorNetBase : public nvqir::CircuitSimulatorBase<ScalarType> {
+
 public:
   using DataType = std::complex<ScalarType>;
   static constexpr cudaDataType_t cudaDataType =
@@ -62,6 +63,10 @@ public:
 
   /// @brief Perform a measurement on a given qubit
   virtual bool measureQubit(const std::size_t qubitIdx) override;
+
+  /// @brief Perform a measurement on a given qudit
+  virtual int measureQudit(const std::size_t levels,
+                           const std::size_t quditIdx) override;
 
   QubitOrdering getQubitOrdering() const override { return QubitOrdering::msb; }
 
@@ -141,6 +146,8 @@ protected:
   //   simplification, e.g., when the spin op is sparse (only acting on a few
   //   qubits).
   bool m_reuseContractionPathObserve = false;
+
+  std::size_t m_numLevels = 2;
 };
 
 } // end namespace nvqir

@@ -39,7 +39,7 @@ public:
                      const std::vector<MPSTensor> &mpsTensors,
                      ScratchDeviceMem &inScratchPad,
                      cutensornetHandle_t cutnHandle,
-                     std::mt19937 &randomEngine);
+                     std::mt19937 &randomEngine, std::size_t &numLevels);
 
   MPSSimulationState(const MPSSimulationState &) = delete;
   MPSSimulationState &operator=(const MPSSimulationState &) = delete;
@@ -90,12 +90,11 @@ public:
   };
   /// Util method to create an MPS state from an input state vector.
   // For example, state vector from the user's input.
-  static MpsStateData createFromStateVec(cutensornetHandle_t cutnHandle,
-                                         ScratchDeviceMem &inScratchPad,
-                                         std::size_t size,
-                                         std::complex<ScalarType> *data,
-                                         int bondDim,
-                                         std::mt19937 &randomEngine);
+  static MpsStateData
+  createFromStateVec(cutensornetHandle_t cutnHandle,
+                     ScratchDeviceMem &inScratchPad, std::size_t size,
+                     std::complex<ScalarType> *data, int bondDim,
+                     std::mt19937 &randomEngine, std::size_t &m_numLevels);
 
   /// Retrieve the MPS tensors
   std::vector<MPSTensor> getMpsTensors() const { return m_mpsTensors; }
@@ -117,6 +116,7 @@ protected:
   static constexpr std::size_t g_maxQubitsForStateContraction = 30;
   std::vector<std::complex<ScalarType>> m_contractedStateVec;
   std::mt19937 &m_randomEngine;
+  std::size_t &m_numLevels;
 };
 
 } // namespace nvqir

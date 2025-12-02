@@ -36,8 +36,8 @@ struct TBI {
     std::size_t c = 0;
     for (std::size_t ll : loop_lengths) {
       for (std::size_t i = 0; i < (n_modes - ll); i++) {
-        beam_splitter(qumodes[i], qumodes[i + ll], bs_angles[c]);
-        phase_shift(qumodes[i], ps_angles[c]);
+        beam_splitter(bs_angles[c], qumodes[i], qumodes[i + ll]);
+        phase_shift(ps_angles[c], qumodes[i]);
         c++;
       }
     }

@@ -23,11 +23,11 @@ def TBI(
     counter = 0
     for j in loop_lengths:
         for i in range(n_modes - j):
-            beam_splitter(qumodes[i], qumodes[i + j], bs_angles[counter])
-            phase_shift(qumodes[i], ps_angles[counter])
+            beam_splitter(bs_angles[counter], qumodes[i], qumodes[i + j])
+            phase_shift(ps_angles[counter], qumodes[i])
             counter += 1
 
-    mz(qumodes)
+    mpnr(qumodes)
 
 
 input_state = [1, 0, 1, 0, 1, 0, 1, 0]

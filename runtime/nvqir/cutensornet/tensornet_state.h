@@ -72,7 +72,12 @@ class TensorNetState {
       std::is_same_v<ScalarType, float> ? CUDA_C_32F : CUDA_C_64F;
 
 protected:
+  /// @brief The number of levels for the qudits
+  std::size_t m_numLevels = 2; // default to qubits
+
+  /// @brief The number of qubits in the state
   std::size_t m_numQubits;
+
   cutensornetHandle_t m_cutnHandle;
   cutensornetState_t m_quantumState;
   /// Track id of gate tensors that are applied to the state tensors.
@@ -86,8 +91,6 @@ protected:
   // This is a reference to the backend random number generator, which can be
   // reseeded by users.
   std::mt19937 &m_randomEngine;
-  // True if deterministic path-finding is to be used
-  static bool m_deterministic;
   bool m_hasNoiseChannel = false;
 
 public:
@@ -97,12 +100,12 @@ public:
 
   /// @brief Constructor
   TensorNetState(std::size_t numQubits, ScratchDeviceMem &inScratchPad,
-                 cutensornetHandle_t handle, std::mt19937 &randomEngine);
+                 cutensornetHandle_t handle, std::mt19937 &randomEngine, std::size_t &numLevels);
 
   /// @brief Constructor (specific basis state)
   TensorNetState(const std::vector<int> &basisState,
                  ScratchDeviceMem &inScratchPad, cutensornetHandle_t handle,
-                 std::mt19937 &randomEngine);
+                 std::mt19937 &randomEngine, std::size_t &numLevels);
 
   std::unique_ptr<TensorNetState> clone() const;
 
@@ -114,7 +117,7 @@ public:
   static std::unique_ptr<TensorNetState>
   createFromMpsTensors(const std::vector<MPSTensor> &mpsTensors,
                        ScratchDeviceMem &inScratchPad,
-                       cutensornetHandle_t handle, std::mt19937 &randomEngine);
+                       cutensornetHandle_t handle, std::mt19937 &randomEngine, std::size_t &numLevels);
 
   /// Reconstruct/initialize a tensor network state from a list of tensor
   /// operators.
@@ -122,7 +125,7 @@ public:
   createFromOpTensors(std::size_t numQubits,
                       const std::vector<AppliedTensorOp> &opTensors,
                       ScratchDeviceMem &inScratchPad,
-                      cutensornetHandle_t handle, std::mt19937 &randomEngine);
+                      cutensornetHandle_t handle, std::mt19937 &randomEngine, std::size_t &numLevels);
 
   // Create a tensor network state from the input state vector.
   // Note: this is not the most efficient mode of initialization. However, this
@@ -131,7 +134,8 @@ public:
   static std::unique_ptr<TensorNetState>
   createFromStateVector(std::span<std::complex<ScalarType>> stateVec,
                         ScratchDeviceMem &inScratchPad,
-                        cutensornetHandle_t handle, std::mt19937 &randomEngine);
+                        cutensornetHandle_t handle, std::mt19937 &randomEngine,
+                        std::size_t &numLevels);
 
   /// @brief Apply a unitary gate
   /// @param controlQubits Controlled qubit operands
@@ -209,13 +213,17 @@ public:
   /// @brief Number of qubits that this state represents.
   std::size_t getNumQubits() const { return m_numQubits; }
 
+  /// @brief Number of levels that this state represents.
+  std::size_t getNumLevels() const { return m_numLevels; }
+
   /// @brief True if the state contains gate tensors (not just initial qubit
   /// tensors)
   bool isDirty() const { return m_tensorId > 0; }
 
   /// @brief Helper to reverse qubit order of the input state vector.
   static std::vector<std::complex<ScalarType>>
-  reverseQubitOrder(std::span<std::complex<ScalarType>> stateVec);
+  reverseQubitOrder(std::span<std::complex<ScalarType>> stateVec,
+                    std::size_t n_numLevels = 2);
 
   /// @brief Apply all the cached ops to the state.
   void applyCachedOps();

@@ -9,6 +9,7 @@
 #pragma once
 
 #include "Gates.h"
+#include "PhotonicGates.h"
 #include "QIRTypes.h"
 #include "common/Environment.h"
 #include "common/ExecutionContext.h"
@@ -88,6 +89,9 @@ struct SummaryData {
 /// state vector), sampling, and measurements.
 class CircuitSimulator {
 protected:
+  /// @brief The number of levels for the qudits
+  std::size_t levels = 2; // default to qubits
+
   /// @brief Flush the current queue of gates, i.e.
   /// apply them to the state. Internal and meant for
   /// subclasses to implement
@@ -229,10 +233,10 @@ public:
   virtual std::size_t allocateQubit() = 0;
 
   /// @brief Allocate `count` qubits.
-  virtual std::vector<std::size_t>
-  allocateQubits(std::size_t count, const void *state = nullptr,
-                 cudaq::simulation_precision precision =
-                     cudaq::simulation_precision::fp32) = 0;
+  virtual std::vector<std::size_t> allocateQubits(
+      std::size_t count, const void *state = nullptr,
+      cudaq::simulation_precision precision = cudaq::simulation_precision::fp32,
+      std::size_t levels = 2) = 0;
   virtual std::vector<std::size_t>
   allocateQubits(std::size_t count, const cudaq::SimulationState *state) = 0;
 
@@ -320,7 +324,7 @@ public:
   /// @brief The IBM U1 gate
   CIRCUIT_SIMULATOR_ONE_QUBIT_ONE_PARAM(u1)
 
-// Undef those preprocessor defines.
+  // Undef those preprocessor defines.
 #undef CIRCUIT_SIMULATOR_ONE_QUBIT
 #undef CIRCUIT_SIMULATOR_ONE_QUBIT_ONE_PARAM
 
@@ -371,12 +375,74 @@ public:
   /// measure qubit, which we then use to do full state sampling when
   /// flushAnySamplingTask() is called. If the context is sample-conditional,
   /// then we have a circuit that contains if (`mz(q)`) and we measure the
-  /// qubit, collapse the state, and then store the sample qubit for final full
-  /// state sampling. We also return the bit result. If no execution context,
-  /// just measure, collapse, and return the bit.
+  /// qubit, collapse the state, and then store the sample qubit for final
+  /// full state sampling. We also return the bit result. If no execution
+  /// context, just measure, collapse, and return the bit.
   virtual bool mz(const std::size_t qubitIdx,
                   const std::string &registerName) = 0;
+  ////////////////////////////////////////////////////////////////////////////////
+#define PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT(NAME)                             \
+  void NAME(const std::size_t levels, const std::size_t quditIdx) {            \
+    std::vector<std::size_t> tmp;                                              \
+    NAME(levels, tmp, quditIdx);                                               \
+  }                                                                            \
+  virtual void NAME(const std::size_t levels,                                  \
+                    const std::vector<std::size_t> &controls,                  \
+                    const std::size_t quditIdx) = 0;
 
+#define PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT_ONE_PARAM(NAME)                   \
+  void NAME(const std::size_t levels, const double angle,                      \
+            const std::size_t quditIdx) {                                      \
+    std::vector<std::size_t> tmp;                                              \
+    NAME(levels, angle, tmp, quditIdx);                                        \
+  }                                                                            \
+  virtual void NAME(const std::size_t levels, const double angle,              \
+                    const std::vector<std::size_t> &controls,                  \
+                    const std::size_t quditIdx) = 0;
+
+#define PHOTONIC_CIRCUIT_SIMULATOR_TWO_QUDIT_ONE_PARAM(NAME)                   \
+  void NAME(const std::size_t levels, const double angle,                      \
+            const std::size_t quditsIdx1, const std::size_t quditsIdx2) {      \
+    std::vector<std::size_t> tmp;                                              \
+    NAME(levels, angle, tmp, quditsIdx1, quditsIdx2);                          \
+  }                                                                            \
+  virtual void NAME(const std::size_t levels, const double angle,              \
+                    const std::vector<std::size_t> &controls,                  \
+                    const std::size_t quditsIdx1,                              \
+                    const std::size_t quditsIdx2) = 0;
+
+  /// @brief The create gate
+  PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT(create)
+  /// @brief The annihilate gate
+  PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT(annihilate)
+  // /// @brief The plus gate
+  // PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT(plus)
+  /// @brief The phase_shift gate
+  PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT_ONE_PARAM(phase_shift)
+  /// @brief The beam_splitter gate
+  PHOTONIC_CIRCUIT_SIMULATOR_TWO_QUDIT_ONE_PARAM(beam_splitter)
+
+/// Undef those preprocessor defines.
+///  @brief
+#undef PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT
+#undef PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT_ONE_PARAM
+#undef PHOTONIC_CIRCUIT_SIMULATOR_TWO_QUDIT_ONE_PARAM
+
+  /// @brief Measure the qudit with given index
+  virtual std::size_t mpnr(const std::size_t levels,
+                         const std::size_t quditIdx) = 0;
+
+  /// @brief Measure operation. Here we check what the current execution
+  /// context is. If the context is sample, then we do nothing but store the
+  /// measure qudit, which we then use to do full state sampling when
+  /// flushAnySamplingTask() is called. If the context is sample-conditional,
+  /// then we have a circuit that contains if (`mpnr(q)`) and we measure the
+  /// qudit, collapse the state, and then store the sample qudit for final
+  /// full state sampling. We also return the digit result. If no execution
+  /// context, just measure, collapse, and return the digit.
+  virtual std::size_t mpnr(const std::size_t levels, const std::size_t quditIdx,
+                         const std::string &registerName) = 0;
+  ////////////////////////////////////////////////////////////////////////////////
   virtual void measureSpinOp(const cudaq::spin_op &op) = 0;
 
   /// @brief Reset the qubit to the |0> state
@@ -400,7 +466,7 @@ public:
   /// A string containing the output logging of a kernel launched with
   /// `cudaq::run()`.
   std::string outputLog;
-};
+}; // class CircuitSimulator
 
 /// @brief The CircuitSimulatorBase is the type that is meant to
 /// be subclassed for new simulation strategies. The separation of
@@ -478,13 +544,15 @@ protected:
     const std::vector<std::size_t> controls;
     const std::vector<std::size_t> targets;
     const std::vector<ScalarType> parameters;
+    const std::size_t levels;
     GateApplicationTask(const std::string &name,
                         const std::vector<std::complex<ScalarType>> &m,
                         const std::vector<std::size_t> &c,
                         const std::vector<std::size_t> &t,
-                        const std::vector<ScalarType> &params)
+                        const std::vector<ScalarType> &params,
+                        std::size_t lvls = 2)
         : operationName(name), matrix(m), controls(c), targets(t),
-          parameters(params) {}
+          parameters(params), levels(lvls) {}
   };
 
   /// @brief The current queue of operations to execute
@@ -508,7 +576,10 @@ protected:
   /// @brief Return the current multi-qubit state dimension
   virtual std::size_t calculateStateDim(const std::size_t numQubits) {
     assert(numQubits < 64);
-    return 1ULL << numQubits;
+    if (this->levels == 2)
+      return 1ULL << numQubits;
+    else
+      return std::pow(this->levels, numQubits);
   }
 
   /// @brief Add a new qubit to the state representation.
@@ -529,6 +600,11 @@ protected:
   /// @brief Perform the actual mechanics of measuring a qubit,
   /// left as a task for concrete subtypes.
   virtual bool measureQubit(const std::size_t qubitIdx) = 0;
+
+  /// @brief Perform the actual mechanics of measuring a qudit,
+  /// left as a task for concrete subtypes.
+  virtual int measureQudit(const std::size_t levels,
+                           const std::size_t quditIdx) = 0;
 
   /// @brief Return true if this CircuitSimulator can
   /// handle <psi | H | psi> instead of NVQIR applying measure
@@ -674,6 +750,42 @@ protected:
     return ret.str();
   }
 
+  /// @brief Utility function that returns a string-view of the current
+  /// quantum instruction, intended for logging purposes.
+  std::string photonicGateToString(const std::string_view gateName,
+                                   const std::vector<std::size_t> &controls,
+                                   const std::vector<ScalarType> &parameters,
+                                   const std::vector<std::size_t> &targets) {
+    std::string angleStr = "";
+    if (!parameters.empty()) {
+      angleStr = std::to_string(parameters[0]);
+      for (std::size_t i = 1; i < parameters.size(); i++)
+        angleStr += ", " + std::to_string(parameters[i]);
+      angleStr += ", ";
+    }
+
+    std::stringstream bits, ret;
+    if (!controls.empty()) {
+      bits << controls[0];
+      for (size_t i = 1; i < controls.size(); i++) {
+        bits << ", " << controls[i];
+      }
+      bits << ", " << targets[0];
+      for (size_t i = 1; i < targets.size(); i++) {
+        bits << ", " << targets[i];
+      }
+      ret << "(apply) ctrl-" << gateName << "(" << angleStr << bits.str()
+          << ")";
+    } else {
+      bits << targets[0];
+      for (size_t i = 1; i < targets.size(); i++) {
+        bits << ", " << targets[i];
+      }
+      ret << "(apply) " << gateName << "(" << angleStr << bits.str() << ")";
+    }
+    return ret.str();
+  }
+
   /// @brief Return true if the current execution is in batch mode
   bool isInBatchMode() {
     if (!executionContext)
@@ -694,8 +806,8 @@ protected:
   }
 
   /// @brief Add the given number of qubits to the state.
-  virtual void addQubitsToState(std::size_t count,
-                                const void *state = nullptr) {
+  virtual void addQubitsToState(std::size_t count, const void *state = nullptr,
+                                std::size_t levels = 2) {
     if (state != nullptr)
       throw std::runtime_error("State initialization must be handled by "
                                "subclasses, override addQubitsToState.");
@@ -791,7 +903,8 @@ protected:
                    const std::vector<std::complex<ScalarType>> &matrix,
                    const std::vector<std::size_t> &controls,
                    const std::vector<std::size_t> &targets,
-                   const std::vector<ScalarType> &params) {
+                   const std::vector<ScalarType> &params,
+                   const std::size_t levels = 2) {
     if (isInTracerMode()) {
       std::vector<cudaq::QuditInfo> controlsInfo, targetsInfo;
       for (auto &c : controls)
@@ -822,10 +935,10 @@ protected:
       z_env_var_checked = true;
     }
     if (z_matrix_logging)
-      cudaq::log("{}: matrix={}, controls={}, targets={}, params={}", name,
-                 matrix, controls, targets, params);
+      cudaq::log("{}: matrix={}, controls={}, targets={}, params={}, levels={}",
+                 name, matrix, controls, targets, params, levels);
 
-    gateQueue.emplace(name, matrix, controls, targets, params);
+    gateQueue.emplace(name, matrix, controls, targets, params, levels);
   }
 
   /// @brief This pure virtual method is meant for subtypes
@@ -966,10 +1079,10 @@ public:
   }
 
   /// @brief Allocate `count` qubits.
-  std::vector<std::size_t>
-  allocateQubits(std::size_t count, const void *state = nullptr,
-                 cudaq::simulation_precision precision =
-                     cudaq::simulation_precision::fp32) override {
+  std::vector<std::size_t> allocateQubits(
+      std::size_t count, const void *state = nullptr,
+      cudaq::simulation_precision precision = cudaq::simulation_precision::fp32,
+      std::size_t levels = 2) override {
     // Make sure if someone gives us state data, that the precision
     // is correct for this simulation.
     if (state != nullptr) {
@@ -1011,13 +1124,13 @@ public:
 
     if (!isInTracerMode())
       // Tell the subtype to allocate more qubits
-      addQubitsToState(count, state);
+      addQubitsToState(count, state, levels);
 
     // May be that the state grows enough that we
     // want to handle observation via sampling
     if (executionContext)
       executionContext->canHandleObserve = canHandleObserve();
-
+    CUDAQ_INFO("New qubits {}.", qubits);
     return qubits;
   }
 
@@ -1306,7 +1419,22 @@ public:
     flushAnySamplingTasks();
     QuantumOperation gate;
     CUDAQ_INFO(gateToString(gate.name(), controls, angles, targets));
+
     enqueueGate(gate.name(), gate.getGate(angles), controls, targets, angles);
+  }
+
+  template <typename QuantumOperation>
+  void
+  enqueuePhotonicQuantumOperation(const std::size_t &levels,
+                                  const std::vector<ScalarType> &angles,
+                                  const std::vector<std::size_t> &controls,
+                                  const std::vector<std::size_t> &targets) {
+    flushAnySamplingTasks();
+    QuantumOperation gate;
+    CUDAQ_INFO(photonicGateToString(gate.name(), controls, angles, targets));
+
+    enqueueGate(gate.name(), gate.getGate(levels, angles), controls, targets,
+                angles, levels);
   }
 
 #define CIRCUIT_SIMULATOR_ONE_QUBIT(NAME)                                      \
@@ -1325,7 +1453,6 @@ public:
         {static_cast<ScalarType>(angle)}, controls,                            \
         std::vector<std::size_t>{qubitIdx});                                   \
   }
-
   /// @brief The X gate
   CIRCUIT_SIMULATOR_ONE_QUBIT(x)
   /// @brief The Y gate
@@ -1352,10 +1479,11 @@ public:
   CIRCUIT_SIMULATOR_ONE_QUBIT_ONE_PARAM(r1)
   /// @brief The IBM U1 gate
   CIRCUIT_SIMULATOR_ONE_QUBIT_ONE_PARAM(u1)
-
 // Undef those preprocessor defines.
 #undef CIRCUIT_SIMULATOR_ONE_QUBIT
 #undef CIRCUIT_SIMULATOR_ONE_QUBIT_ONE_PARAM
+
+  ////////////////////////////////////////////////////////////////////////////////
 
   using CircuitSimulator::u2;
   void u2(const double phi, const double lambda,
@@ -1408,16 +1536,16 @@ public:
   /// @brief Measure operation. Here we check what the current execution
   /// context is. If the context is sample, then we do nothing but store the
   /// measure qubit, which we then use to do full state sampling when
-  /// flushAnySamplingTask() is called. If the context is sample-conditional,
-  /// then we have a circuit that contains if (`mz(q)`) and we measure the
-  /// qubit, collapse the state, and then store the sample qubit for final
-  /// full state sampling. We also return the bit result. If no execution
-  /// context, just measure, collapse, and return the bit.
+  /// flushAnySamplingTask() is called. If the context is
+  /// sample-conditional, then we have a circuit that contains if (`mz(q)`)
+  /// and we measure the qubit, collapse the state, and then store the
+  /// sample qubit for final full state sampling. We also return the bit
+  /// result. If no execution context, just measure, collapse, and return
+  /// the bit.
   bool mz(const std::size_t qubitIdx,
           const std::string &registerName) override {
     // Flush the Gate Queue
     flushGateQueue();
-
     // Apply measurement noise (if any)
     // Note: gate noises are applied during flushGateQueue
     if (executionContext && executionContext->noiseModel)
@@ -1431,7 +1559,8 @@ public:
     if (isInTracerMode())
       return true;
 
-    // Get the actual measurement from the subtype measureQubit implementation
+    // Get the actual measurement from the subtype measureQubit
+    // implementation
     auto measureResult = measureQubit(qubitIdx);
     auto bitResult = measureResult == true ? "1" : "0";
 
@@ -1443,6 +1572,7 @@ public:
     return measureResult;
   }
 
+  ////////////////////////////////////////////////////////////////////////////////
   // FIXME: it would be cleaner and more consistent (with exp_pauli) if
   // this function explicitly received a vector of qubit indices such that
   // only the relative order of the target in the spin op is relevant.
@@ -1510,9 +1640,91 @@ public:
       flushGateQueue();
     }
   }
+////////////////////////////////////////////////////////////////////////////////
+#define PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT(NAME)                             \
+  using CircuitSimulator::NAME;                                                \
+  void NAME(const std::size_t levels,                                          \
+            const std::vector<std::size_t> &controls,                          \
+            const std::size_t quditIdx) override {                             \
+    enqueuePhotonicQuantumOperation<nvqir::NAME<ScalarType>>(                  \
+        levels, {}, controls, std::vector<std::size_t>{quditIdx});             \
+  }
 
+#define PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT_ONE_PARAM(NAME)                   \
+  using CircuitSimulator::NAME;                                                \
+  void NAME(const std::size_t levels, const double angle,                      \
+            const std::vector<std::size_t> &controls,                          \
+            const std::size_t quditIdx) override {                             \
+    enqueuePhotonicQuantumOperation<nvqir::NAME<ScalarType>>(                  \
+        levels, {static_cast<ScalarType>(angle)}, controls,                    \
+        std::vector<std::size_t>{quditIdx});                                   \
+  }
+
+#define PHOTONIC_CIRCUIT_SIMULATOR_TWO_QUDIT_ONE_PARAM(NAME)                   \
+  using CircuitSimulator::NAME;                                                \
+  void NAME(const std::size_t levels, const double angle,                      \
+            const std::vector<std::size_t> &controls,                          \
+            const std::size_t quditsIdxs1, const std::size_t quditsIdxs2)      \
+      override {                                                               \
+    enqueuePhotonicQuantumOperation<nvqir::NAME<ScalarType>>(                  \
+        levels, {static_cast<ScalarType>(angle)}, controls,                    \
+        std::vector<std::size_t>{quditsIdxs1, quditsIdxs2});                   \
+  }
+
+  /// @brief The create gate
+  PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT(create)
+  /// @brief The annihilate gate
+  PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT(annihilate)
+  // /// @brief The plus gate
+  // PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT(plus)
+  // /// @brief The phase_shift gate
+  PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT_ONE_PARAM(phase_shift)
+  // /// @brief The beam_splitter gate
+  PHOTONIC_CIRCUIT_SIMULATOR_TWO_QUDIT_ONE_PARAM(beam_splitter)
+
+// Undef those preprocessor defines.
+#undef PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT
+#undef PHOTONIC_CIRCUIT_SIMULATOR_ONE_QUDIT_ONE_PARAM
+#undef PHOTONIC_CIRCUIT_SIMULATOR_TWO_QUDIT_ONE_PARAM
+
+  ////////////////////////////////////////////////////////////////////////////////
+  std::size_t mpnr(const std::size_t levels,
+                 const std::size_t quditIdx) override {
+    return mpnr(levels, quditIdx, "");
+  }
+
+  /// @brief Measure operation. Here we check what the current execution
+  /// context is. If the context is sample, then we do nothing but store the
+  /// measure qudit, which we then use to do full state sampling when
+  /// flushAnySamplingTask() is called. If the context is sample-conditional,
+  /// then we have a circuit that contains if (`mpnr(q)`) and we measure the
+  /// qudit, collapse the state, and then store the sample qudit for final
+  /// full state sampling. We also return the digit result. If no execution
+  /// context, just measure, collapse, and return the digit.
+  std::size_t mpnr(const std::size_t levels, const std::size_t quditIdx,
+                 const std::string &registerName) override {
+    // Flush the Gate Queue
+    flushGateQueue();
+
+    // If sampling, just store the digit, do nothing else.
+    if (handleBasicSampling(quditIdx, registerName))
+      return true;
+
+    if (isInTracerMode())
+      return true;
+
+    // Get the actual measurement from the subtype measureQudit implementation
+    auto measureResult = measureQudit(levels, quditIdx);
+    auto digitResult = std::to_string(measureResult);
+    // If this CUDA-Q kernel has conditional statements on measure results
+    // then we want to handle the sampling a digit differently.
+    handleSamplingWithConditionals(quditIdx, digitResult, registerName);
+
+    // Return the result
+    return measureResult;
+  }
+}; // class CircuitSimulatorBase
 }; // namespace nvqir
-} // namespace nvqir
 
 #define CONCAT(a, b) CONCAT_INNER(a, b)
 #define CONCAT_INNER(a, b) a##b

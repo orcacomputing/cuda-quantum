@@ -26,7 +26,7 @@ TensorNetworkSpinOp<ScalarType>::TensorNetworkSpinOp(
   const std::size_t maxQubitIdx =
       *std::max_element(degrees.begin(), degrees.end());
   const std::size_t numQubits = maxQubitIdx + 1;
-  const std::vector<int64_t> qubitDims(numQubits, 2);
+  const std::vector<int64_t> qubitDims(numQubits, this->levels);
   HANDLE_CUTN_ERROR(cutensornetCreateNetworkOperator(
       m_cutnHandle, qubitDims.size(), qubitDims.data(), cudaDataType,
       &m_cutnNetworkOperator));

@@ -19,7 +19,7 @@ TEST(PhotonicsTester, checkSimple) {
       create(qumodes[0]);
       create(qumodes[1]);
       create(qumodes[1]);
-      return mz(qumodes);
+      return mpnr(qumodes);
     }
   };
 
@@ -29,7 +29,7 @@ TEST(PhotonicsTester, checkSimple) {
       create(qumodes[0]);
       create(qumodes[1]);
       create(qumodes[1]);
-      mz(qumodes);
+      mpnr(qumodes);
     }
   };
 
@@ -58,8 +58,8 @@ TEST(PhotonicsTester, checkHOM) {
         }
       }
 
-      beam_splitter(qumodes[0], qumodes[1], theta);
-      mz(qumodes);
+      beam_splitter(theta, qumodes[0], qumodes[1]);
+      mpnr(qumodes);
     }
   };
 
@@ -98,13 +98,13 @@ TEST(PhotonicsTester, checkMZI) {
         for (std::size_t j = 0; j < input_state[i]; j++)
           create(qumodes[i]); // setting to  |10>
 
-      beam_splitter(qumodes[0], qumodes[1], M_PI / 4);
-      phase_shift(qumodes[0], M_PI / 3);
+      beam_splitter(M_PI / 4, qumodes[0], qumodes[1]);
+      phase_shift(M_PI / 3, qumodes[0]);
 
-      beam_splitter(qumodes[0], qumodes[1], M_PI / 4);
-      phase_shift(qumodes[0], M_PI / 3);
+      beam_splitter(M_PI / 4, qumodes[0], qumodes[1]);
+      phase_shift(M_PI / 3, qumodes[0]);
 
-      mz(qumodes);
+      mpnr(qumodes);
     }
   };
 

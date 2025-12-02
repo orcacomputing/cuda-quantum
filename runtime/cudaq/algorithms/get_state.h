@@ -37,7 +37,7 @@ namespace details {
 /// @brief Execute the given kernel functor and extract the
 /// state representation.
 template <typename KernelFunctor>
-state extractState(KernelFunctor &&kernel) {
+state extractState(KernelFunctor &&kernel, std::size_t levels = 2) {
   // Get the platform.
   auto &platform = cudaq::get_platform();
 

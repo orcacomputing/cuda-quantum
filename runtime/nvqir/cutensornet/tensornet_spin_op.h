@@ -44,6 +44,9 @@ public:
 
   /// @brief Destructor
   ~TensorNetworkSpinOp();
+protected:
+  /// @brief The number of levels for the qudits
+  std::size_t levels = 2; // default to qubits
 };
 } // namespace nvqir
 

@@ -29,47 +29,13 @@ SimulatorTensorNetBase<ScalarType>::SimulatorTensorNetBase()
   // Check whether observe path reuse is enabled.
   m_reuseContractionPathObserve =
       cudaq::getEnvBool("CUDAQ_TENSORNET_OBSERVE_CONTRACT_PATH_REUSE", false);
-
-  bool limit_pathfinding = cudaq::getEnvBool("CUDAQ_TENSORNET_FIND_LIMIT", true);
-  if (!limit_pathfinding) {
-    CUDAQ_INFO("Disabling cutensornet smart opt");
-    setenv("CUTENSORNET_CONTRACTION_OPTIMIZER_CONFIG_SMART_OPTION","0",1);
-  }
-
-  bool deterministic = cudaq::getEnvBool("CUDAQ_TENSORNET_FIND_DETERMINISTIC",
-                                         false);
-  if (deterministic) {
-    CUDAQ_INFO("Enabling deterministic tensornet with 1 pathfinding thread");
-    setenv("CUTENSORNET_CONTRACTION_OPTIMIZER_CONFIG_HYPER_NUM_THREADS",
-           "1",1);
-  }
-
-  if (auto *finder_threads = std::getenv("CUDAQ_TENSORNET_FIND_THREADS")) {
-    const std::string nthreads_str(finder_threads);
-    int nthreads = -1;
-    try {
-      nthreads = std::stoi(nthreads_str);
-    } catch (const std::invalid_argument &e) {
-      nthreads = -1;
-    } catch (const std::out_of_range &e) {
-      nthreads = -1;
-    }
-    if (nthreads < 1)
-      throw std::runtime_error("Invalid CUDAQ_TENSORNET_FIND_THREADS setting" +
-                               nthreads_str);
-    if (deterministic && nthreads > 1)
-      CUDAQ_WARN("Ignoring CUDAQ_TENSORNET_FIND_THREADS due to CUDAQ_TENSORNET_FIND_DETERMINISTIC");
-    else {
-      CUDAQ_INFO("Setting the # of pathfinding threads to {}", finder_threads);
-      setenv("CUTENSORNET_CONTRACTION_OPTIMIZER_CONFIG_HYPER_NUM_THREADS", finder_threads, 1);
-    }
-  }
 }
 
 template <typename T>
 std::vector<std::complex<T>>
 generateFullGateTensor(std::size_t num_control_qubits,
-                       const std::vector<std::complex<T>> &target_gate) {
+                       const std::vector<std::complex<T>> &target_gate,
+                       std::size_t numLevels) {
   const auto mat_size = target_gate.size();
   // Must be square matrix (n x n)
   assert(std::ceil(std::sqrt(mat_size)) == std::floor(std::sqrt(mat_size)) &&
@@ -78,14 +44,26 @@ generateFullGateTensor(std::size_t num_control_qubits,
   const std::size_t target_gate_dim = std::ceil(std::sqrt(mat_size));
   // Number of qubits
   const std::size_t num_target_qubits = std::bit_width(target_gate_dim) - 1;
-  assert(target_gate_dim == (1u << num_target_qubits) &&
-         "Gate matrix dimension is not 2^N");
+  const std::size_t num_target_qudits =
+      static_cast<std::size_t>(std::log(target_gate_dim) / std::log(numLevels));
+  if (numLevels == 2) {
+
+    assert(target_gate_dim == (1u << num_target_qubits) &&
+           "Gate matrix dimension is not 2^N");
+  } else {
+    assert(target_gate_dim == pow(numLevels, num_target_qudits) &&
+           "Gate matrix dimension is not numLevels^N");
+  }
   // No control => return the input matrix
   if (num_control_qubits == 0)
     return target_gate;
   // Expand the matrix
-  const std::size_t full_dim =
-      (1UL << (num_control_qubits + num_target_qubits));
+  std::size_t full_dim = 0;
+  if (numLevels == 2) {
+    full_dim = (1ULL << (num_control_qubits + num_target_qubits));
+  } else {
+    full_dim = pow(numLevels, num_control_qubits + num_target_qudits);
+  }
   std::vector<std::complex<T>> gate_tensor(full_dim * full_dim, {0.0, 0.0});
   std::size_t offset = 0;
   // Set the diagonal elements:
@@ -126,6 +104,7 @@ void SimulatorTensorNetBase<ScalarType>::applyGate(
     const GateApplicationTask &task) {
   const auto &controls = task.controls;
   const auto &targets = task.targets;
+  const auto levels = task.levels;
   // Cache name lookup key:
   // <GateName>_<Param>_<Matrix>
   const std::string gateKey = task.operationName + "_" + [&]() {
@@ -153,7 +132,7 @@ void SimulatorTensorNetBase<ScalarType>::applyGate(
       // If this is the first time seeing this (gate + number of control qubits)
       // compo, compute the expanded matrix.
       const auto expandedGateMat =
-          generateFullGateTensor(controls.size(), task.matrix);
+          generateFullGateTensor(controls.size(), task.matrix, levels);
       void *dMem = allocateGateMatrix(expandedGateMat);
       m_gateDeviceMemCache[expandedMatKey] = dMem;
       m_state->applyGate(/*controlQubits=*/{}, qubitOperands, dMem);
@@ -273,9 +252,8 @@ void SimulatorTensorNetBase<ScalarType>::applyNoise(
 
   // Apply all prior gates before applying noise.
   std::vector<int32_t> qubits{targets.begin(), targets.end()};
-  CUDAQ_INFO(
-      "[SimulatorTensorNetBase] Applying kraus channel {} on qubits: {}",
-      cudaq::get_noise_model_type_name(channel.noise_type), qubits);
+  CUDAQ_INFO("[SimulatorTensorNetBase] Applying kraus channel {} on qubits: {}",
+             cudaq::get_noise_model_type_name(channel.noise_type), qubits);
 
   this->flushGateQueue();
   applyKrausChannel(qubits, channel);
@@ -364,6 +342,8 @@ void SimulatorTensorNetBase<ScalarType>::resetQubit(
                                {static_cast<int32_t>(qubitIdx)});
 }
 
+// TODO: Implement qudit reset
+
 /// @brief Device synchronization
 template <typename ScalarType>
 void SimulatorTensorNetBase<ScalarType>::synchronize() {
@@ -411,6 +391,54 @@ bool SimulatorTensorNetBase<ScalarType>::measureQubit(
   m_state->applyQubitProjector(m_gateDeviceMemCache[projKey],
                                {static_cast<int32_t>(qubitIdx)});
   return resultBool;
+}
+
+/// @brief Perform a measurement on a given qudit
+template <typename ScalarType>
+int SimulatorTensorNetBase<ScalarType>::measureQudit(
+    const std::size_t levels, const std::size_t quditIdx) {
+  LOG_API_TIME();
+  // Prepare the state before RDM calculation
+  prepareQubitTensorState();
+  const auto rdm = m_state->computeRDM({static_cast<int32_t>(quditIdx)});
+  assert(rdm.size() == levels * levels);
+  std::vector<ScalarType> probabilities(levels);
+  for (std::size_t i = 0; i < levels; ++i)
+    probabilities[i] = rdm[(levels + 1) * i].real();
+
+  ScalarType sum_probs = std::accumulate(probabilities.begin(),
+                                         probabilities.end(), ScalarType(0));
+  assert(std::abs(1.0 - (sum_probs)) < 1e-3);
+
+  std::discrete_distribution<std::size_t> dd(std::begin(probabilities),
+                                             std::end(probabilities));
+  auto result = dd(m_randomEngine);
+
+  const std::vector<std::complex<ScalarType>> projectedMat = [&]() {
+    std::vector<std::complex<ScalarType>> mat(levels * levels, {0.0, 0.0});
+
+    mat[result * (levels + 1)] = {
+        static_cast<ScalarType>(1.0) / std::sqrt(probabilities[result]), 0.0};
+    return mat;
+  }();
+
+  const std::string projKey = std::string("Project") + "_" +
+                              std::to_string(result) + "_Prob" +
+                              std::to_string(probabilities[result]);
+  const auto iter = m_gateDeviceMemCache.find(projKey);
+  if (iter == m_gateDeviceMemCache.end()) {
+    void *d_gateProj{nullptr};
+    HANDLE_CUDA_ERROR(cudaMalloc(
+        &d_gateProj, levels * levels * sizeof(std::complex<ScalarType>)));
+    HANDLE_CUDA_ERROR(
+        cudaMemcpy(d_gateProj, projectedMat.data(),
+                   levels * levels * sizeof(std::complex<ScalarType>),
+                   cudaMemcpyHostToDevice));
+    m_gateDeviceMemCache[projKey] = d_gateProj;
+  }
+  m_state->applyQubitProjector(m_gateDeviceMemCache[projKey],
+                               {static_cast<int32_t>(quditIdx)});
+  return result;
 }
 
 /// @brief Sample a subset of qubits
@@ -465,8 +493,8 @@ bool SimulatorTensorNetBase<ScalarType>::canHandleObserve() {
     // This 'shots' mode is very slow for tensor network.
     // However, we need to respect the shots option.
     CUDAQ_INFO("[SimulatorTensorNetBase] Shots mode expectation calculation "
-                "is requested with {} shots.",
-                this->executionContext->shots);
+               "is requested with {} shots.",
+               this->executionContext->shots);
 
     return false;
   }
@@ -550,7 +578,7 @@ void SimulatorTensorNetBase<ScalarType>::setToZeroState() {
   m_state.reset();
   // Re-create a zero state of the same size
   m_state = std::make_unique<TensorNetState<ScalarType>>(
-      numQubits, scratchPad, m_cutnHandle, m_randomEngine);
+      numQubits, scratchPad, m_cutnHandle, m_randomEngine, m_numLevels);
 }
 
 template <typename ScalarType>
@@ -584,15 +612,6 @@ void SimulatorTensorNetBase<ScalarType>::swap(
 template <typename ScalarType>
 void SimulatorTensorNetBase<ScalarType>::setRandomSeed(std::size_t randomSeed) {
   m_randomEngine = std::mt19937(randomSeed);
-  // Although we set the pathfinder seed here, it is only deterministic when
-  // the number of pathfinding threads is 1. Note that this does not override a
-  // user setting for this environment variable. cutensornet uses int32_t but
-  // requires the environment variable to be positive
-  int32_t rndSeed = m_randomEngine();
-  rndSeed = std::abs(rndSeed);
-  if (rndSeed == 0) rndSeed++;
-  setenv("CUTENSORNET_CONTRACTION_OPTIMIZER_CONFIG_SEED",
-         std::to_string(rndSeed).c_str(),0);
 }
 
 template <typename ScalarType>

@@ -170,7 +170,7 @@ def plus(qudit: PyQudit):
                                             [[qudit.level, qudit.id]])
 
 
-def phase_shift(qudit: PyQudit, phi: float):
+def phase_shift(phi: float, qudit: PyQudit):
     """
     Apply phase shift gate.
     TBD
@@ -188,7 +188,7 @@ def phase_shift(qudit: PyQudit, phi: float):
                                             [[qudit.level, qudit.id]])
 
 
-def beam_splitter(q: PyQudit, r: PyQudit, theta: float):
+def beam_splitter(theta: float, q: PyQudit, r: PyQudit):
     """
     Apply beam splitter gate.
     TBD

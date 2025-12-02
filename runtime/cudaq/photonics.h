@@ -8,4 +8,4 @@
 
 #pragma once
 
-#include "qis/managers/photonics/photonics_qis.h"
+#include "qis/photonic_qis.h"

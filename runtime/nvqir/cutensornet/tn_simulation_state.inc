@@ -19,7 +19,8 @@ int deviceFromPointer(void *ptr) {
 }
 
 template <typename ScalarType>
-std::size_t TensorNetSimulationState<ScalarType>::getNumQubits() const {
+std::size_t
+TensorNetSimulationState<ScalarType>::getNumQubits() const {
   return m_state->getNumQubits();
 }
 
@@ -27,9 +28,9 @@ template <typename ScalarType>
 TensorNetSimulationState<ScalarType>::TensorNetSimulationState(
     std::unique_ptr<TensorNetState<ScalarType>> inState,
     ScratchDeviceMem &inScratchPad, cutensornetHandle_t cutnHandle,
-    std::mt19937 &randomEngine)
+    std::mt19937 &randomEngine, std::size_t &numLevels)
     : m_state(std::move(inState)), scratchPad(inScratchPad),
-      m_cutnHandle(cutnHandle), m_randomEngine(randomEngine) {}
+      m_cutnHandle(cutnHandle), m_randomEngine(randomEngine), m_numLevels(numLevels) {}
 
 template <typename ScalarType>
 TensorNetSimulationState<ScalarType>::~TensorNetSimulationState() {}
@@ -209,7 +210,8 @@ std::complex<double> TensorNetSimulationState<ScalarType>::overlap(
 }
 
 template <typename ScalarType>
-std::complex<double> TensorNetSimulationState<ScalarType>::getAmplitude(
+std::complex<double>
+TensorNetSimulationState<ScalarType>::getAmplitude(
     const std::vector<int> &basisState) {
   if (getNumQubits() != basisState.size())
     throw std::runtime_error(
@@ -230,7 +232,12 @@ std::complex<double> TensorNetSimulationState<ScalarType>::getAmplitude(
     // If this is the first time, cache the state.
     if (m_contractedStateVec.empty())
       m_contractedStateVec = m_state->getStateVector();
-    assert(m_contractedStateVec.size() == (1ULL << m_state->getNumQubits()));
+    if (this->m_numLevels == 2) {
+      assert(m_contractedStateVec.size() == (1ULL << m_state->getNumQubits()));
+    } else {
+      assert(m_contractedStateVec.size() ==
+             pow(this->m_numLevels, m_state->getNumQubits()));
+    }
     const std::size_t idx = std::accumulate(
         std::make_reverse_iterator(basisState.end()),
         std::make_reverse_iterator(basisState.begin()), 0ull,
@@ -250,7 +257,8 @@ std::complex<double> TensorNetSimulationState<ScalarType>::getAmplitude(
 
 template <typename ScalarType>
 cudaq::SimulationState::Tensor
-TensorNetSimulationState<ScalarType>::getTensor(std::size_t tensorIdx) const {
+TensorNetSimulationState<ScalarType>::getTensor(
+    std::size_t tensorIdx) const {
   if (tensorIdx >= getNumTensors())
     throw std::out_of_range("Invalid tensor index");
   cudaq::SimulationState::Tensor tensor;
@@ -280,7 +288,8 @@ TensorNetSimulationState<ScalarType>::getTensors() const {
 }
 
 template <typename ScalarType>
-std::size_t TensorNetSimulationState<ScalarType>::getNumTensors() const {
+std::size_t
+TensorNetSimulationState<ScalarType>::getNumTensors() const {
   return m_state->m_tensorOps.size();
 }
 
@@ -296,11 +305,13 @@ TensorNetSimulationState<ScalarType>::createFromSizeAndPtr(
   std::vector<std::complex<ScalarType>> vec(
       reinterpret_cast<std::complex<ScalarType> *>(ptr),
       reinterpret_cast<std::complex<ScalarType> *>(ptr) + size);
-  auto tensorNetState = TensorNetState<ScalarType>::createFromStateVector(
-      vec, scratchPad, m_cutnHandle, m_randomEngine);
+  auto tensorNetState =
+      TensorNetState<ScalarType>::createFromStateVector(
+          vec, scratchPad, m_cutnHandle, m_randomEngine, m_numLevels);
 
   return std::make_unique<TensorNetSimulationState<ScalarType>>(
-      std::move(tensorNetState), scratchPad, m_cutnHandle, m_randomEngine);
+      std::move(tensorNetState), scratchPad, m_cutnHandle,
+      m_randomEngine, m_numLevels);
 }
 
 template <typename ScalarType>
@@ -341,7 +352,8 @@ void TensorNetSimulationState<ScalarType>::toHost(
 }
 
 template <typename ScalarType>
-void TensorNetSimulationState<ScalarType>::dump(std::ostream &os) const {
+void TensorNetSimulationState<ScalarType>::dump(
+    std::ostream &os) const {
   const auto printState = [&os](const auto &stateVec) {
     for (auto &t : stateVec)
       os << t << "\n";

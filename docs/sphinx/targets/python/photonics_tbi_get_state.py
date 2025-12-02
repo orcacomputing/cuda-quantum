@@ -23,8 +23,8 @@ def TBI(
     counter = 0
     for j in loop_lengths:
         for i in range(n_modes - j):
-            beam_splitter(qumodes[i], qumodes[i + j], bs_angles[counter])
-            phase_shift(qumodes[i], ps_angles[counter])
+            beam_splitter(bs_angles[counter], qumodes[i], qumodes[i + j])
+            phase_shift(ps_angles[counter], qumodes[i])
             counter += 1
 
 
@@ -33,6 +33,6 @@ loop_lengths = [1, 1]
 n_beam_splitters = len(loop_lengths) * len(input_state) - sum(loop_lengths)
 bs_angles = np.linspace(np.pi / 3, np.pi / 6, n_beam_splitters)
 ps_angles = np.linspace(np.pi / 3, np.pi / 5, n_beam_splitters)
-
+print("Running TBI circuit...")
 state = cudaq.get_state(TBI, bs_angles, ps_angles, input_state, loop_lengths)
 state.dump()

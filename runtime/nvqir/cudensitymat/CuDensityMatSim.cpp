@@ -152,6 +152,12 @@ public:
                              "supported.");
     return false;
   }
+  int measureQudit(const std::size_t levels,
+                   const std::size_t quditIdx) override {
+    throw std::runtime_error("[dynamics target] Quantum gate simulation is not "
+                             "supported.");
+    return 0;
+  }
   void applyGate(const GateApplicationTask &task) override {
     throw std::runtime_error(
         "[dynamics target] Quantum gate simulation is not supported.");

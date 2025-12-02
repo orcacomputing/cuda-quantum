@@ -20,13 +20,15 @@ extern "C" nvqir::CircuitSimulator *getCircuitSimulator_tensornet();
 
 namespace nvqir {
 template <typename ScalarType = double>
-class SimulatorTensorNet : public SimulatorTensorNetBase<ScalarType> {
+class SimulatorTensorNet
+    : public SimulatorTensorNetBase<ScalarType> {
   using SimulatorTensorNetBase<ScalarType>::m_cutnHandle;
   using SimulatorTensorNetBase<
       ScalarType>::m_maxControlledRankForFullTensorExpansion;
   using SimulatorTensorNetBase<ScalarType>::m_state;
   using SimulatorTensorNetBase<ScalarType>::scratchPad;
   using SimulatorTensorNetBase<ScalarType>::m_randomEngine;
+  using SimulatorTensorNetBase<ScalarType>::m_numLevels;
 
 public:
   SimulatorTensorNet() : SimulatorTensorNetBase<ScalarType>() {
@@ -68,7 +70,8 @@ public:
   virtual std::string name() const override { return "tensornet"; }
 #endif
   CircuitSimulator *clone() override {
-    thread_local static auto simulator = std::make_unique<SimulatorTensorNet>();
+    thread_local static auto simulator =
+        std::make_unique<SimulatorTensorNet<ScalarType>>();
     return simulator.get();
   }
   // Add a hook to reset the cutensornet MPI Comm before MPI finalization
@@ -83,21 +86,22 @@ public:
   std::unique_ptr<cudaq::SimulationState> getSimulationState() override {
     LOG_API_TIME();
     return std::make_unique<TensorNetSimulationState<ScalarType>>(
-        std::move(m_state), scratchPad, m_cutnHandle, m_randomEngine);
+        std::move(m_state), scratchPad, m_cutnHandle, m_randomEngine, m_numLevels);
   }
 
-  void addQubitsToState(std::size_t numQubits, const void *ptr) override {
+  void addQubitsToState(std::size_t numQubits, const void *ptr, std::size_t levels = 2) override {
     LOG_API_TIME();
     if (!m_state) {
       if (!ptr) {
         m_state = std::make_unique<TensorNetState<ScalarType>>(
-            numQubits, scratchPad, m_cutnHandle, m_randomEngine);
+            numQubits, scratchPad, m_cutnHandle, m_randomEngine, levels);
       } else {
         auto *casted = reinterpret_cast<std::complex<ScalarType> *>(
             const_cast<void *>(ptr));
-        std::span<std::complex<ScalarType>> stateVec(casted, 1ULL << numQubits);
+        std::span<std::complex<ScalarType>> stateVec(
+            casted, static_cast<std::size_t>(std::pow(levels, numQubits)));
         m_state = TensorNetState<ScalarType>::createFromStateVector(
-            stateVec, scratchPad, m_cutnHandle, m_randomEngine);
+            stateVec, scratchPad, m_cutnHandle, m_randomEngine, levels);
       }
     } else {
       if (!ptr) {
@@ -105,7 +109,8 @@ public:
       } else {
         auto *casted = reinterpret_cast<std::complex<ScalarType> *>(
             const_cast<void *>(ptr));
-        std::span<std::complex<ScalarType>> stateVec(casted, 1ULL << numQubits);
+        std::span<std::complex<ScalarType>> stateVec(
+            casted, static_cast<std::size_t>(std::pow(levels, numQubits)));
         m_state->addQubits(stateVec);
       }
     }
@@ -115,14 +120,15 @@ public:
   addQubitsToState(const cudaq::SimulationState &in_state) override {
     LOG_API_TIME();
     const TensorNetSimulationState<ScalarType> *const casted =
-        dynamic_cast<const TensorNetSimulationState<ScalarType> *>(&in_state);
+        dynamic_cast<const TensorNetSimulationState<ScalarType> *>(
+            &in_state);
     if (!casted)
       throw std::invalid_argument(
           "[Tensornet simulator] Incompatible state input");
     if (!m_state) {
       m_state = TensorNetState<ScalarType>::createFromOpTensors(
           in_state.getNumQubits(), casted->getAppliedTensors(), scratchPad,
-          m_cutnHandle, m_randomEngine);
+          m_cutnHandle, m_randomEngine, m_numLevels);
     } else {
       // Expand an existing state:
       //  (1) Create a blank tensor network with combined number of qubits

@@ -30,10 +30,10 @@ template <typename ScalarType>
 MPSSimulationState<ScalarType>::MPSSimulationState(
     std::unique_ptr<TensorNetState<ScalarType>> inState,
     const std::vector<MPSTensor> &mpsTensors, ScratchDeviceMem &inScratchPad,
-    cutensornetHandle_t cutnHandle, std::mt19937 &randomEngine)
+    cutensornetHandle_t cutnHandle, std::mt19937 &randomEngine, std::size_t &numLevels)
     : m_cutnHandle(cutnHandle), state(std::move(inState)),
       m_mpsTensors(mpsTensors), scratchPad(inScratchPad),
-      m_randomEngine(randomEngine) {}
+      m_randomEngine(randomEngine), m_numLevels(numLevels) {}
 
 template <typename ScalarType>
 MPSSimulationState<ScalarType>::~MPSSimulationState() {
@@ -288,19 +288,29 @@ std::complex<double> MPSSimulationState<ScalarType>::getAmplitude(
 
   if (m_mpsTensors.size() <= g_maxQubitsForStateContraction) {
     // If this is the first time, cache the state.
+    // auto m_numLevels = this->m_numLevels;
     if (m_contractedStateVec.empty())
       m_contractedStateVec = state->getStateVector();
-    assert(m_contractedStateVec.size() == (1ULL << m_mpsTensors.size()));
-    const std::size_t idx = std::accumulate(
-        std::make_reverse_iterator(basisState.end()),
-        std::make_reverse_iterator(basisState.begin()), 0ull,
-        [](std::size_t acc, int bit) { return (acc << 1) + bit; });
+    if (this->m_numLevels == 2)
+      assert(m_contractedStateVec.size() == (1ULL << m_mpsTensors.size()));
+    else
+      assert(m_contractedStateVec.size() ==
+             pow(this->m_numLevels, m_mpsTensors.size()));
+    const std::size_t idx =
+        std::accumulate(std::make_reverse_iterator(basisState.end()),
+                        std::make_reverse_iterator(basisState.begin()), 0ull,
+                        [this](std::size_t acc, int bit) {
+                          if (this->m_numLevels == 2)
+                            return (acc << 1) + bit;
+                          else
+                            return acc * this->m_numLevels + bit;
+                        });
     return m_contractedStateVec[idx];
   }
 
   if (getNumQubits() > 1) {
     TensorNetState basisTensorNetState(
-        basisState, scratchPad, state->getInternalContext(), m_randomEngine);
+        basisState, scratchPad, state->getInternalContext(), m_randomEngine, m_numLevels);
     // Note: this is a basis state, hence bond dim == 1
     std::vector<MPSTensor> basisStateTensors = basisTensorNetState.factorizeMPS(
         1, std::numeric_limits<double>::min(),
@@ -420,8 +430,8 @@ MPSSimulationState<ScalarType>::MpsStateData
 MPSSimulationState<ScalarType>::createFromStateVec(
     cutensornetHandle_t cutnHandle, ScratchDeviceMem &inScratchPad,
     std::size_t size, std::complex<ScalarType> *ptr, int bondDim,
-    std::mt19937 &randomEngine) {
-  const std::size_t numQubits = std::log2(size);
+    std::mt19937 &randomEngine, std::size_t &numLevels) {
+  const std::size_t numQubits = std::log2(size) / std::log2(numLevels);
   // Reverse the qubit order to match cutensornet convention
   auto newStateVec = TensorNetState<ScalarType>::reverseQubitOrder(
       std::span<std::complex<ScalarType>>{ptr, size});
@@ -440,7 +450,7 @@ MPSSimulationState<ScalarType>::createFromStateVec(
     stateTensor.deviceData = d_tensor;
     stateTensor.extents = std::vector<int64_t>{2};
     auto state = TensorNetState<ScalarType>::createFromMpsTensors(
-        {stateTensor}, inScratchPad, cutnHandle, randomEngine);
+        {stateTensor}, inScratchPad, cutnHandle, randomEngine, numLevels);
     return {std::move(state), std::vector<MPSTensor>{stateTensor}};
   }
 
@@ -533,7 +543,7 @@ MPSSimulationState<ScalarType>::createFromStateVec(
   mpsTensors.emplace_back(stateTensor);
   assert(mpsTensors.size() == numQubits);
   auto state = TensorNetState<ScalarType>::createFromMpsTensors(
-      mpsTensors, inScratchPad, cutnHandle, randomEngine);
+      mpsTensors, inScratchPad, cutnHandle, randomEngine, numLevels);
   return {std::move(state), mpsTensors};
 }
 
@@ -562,16 +572,16 @@ MPSSimulationState<ScalarType>::createFromSizeAndPtr(std::size_t size,
       mpsTensors.emplace_back(stateTensor);
     }
     auto state = TensorNetState<ScalarType>::createFromMpsTensors(
-        mpsTensors, scratchPad, m_cutnHandle, m_randomEngine);
+        mpsTensors, scratchPad, m_cutnHandle, m_randomEngine, m_numLevels);
     return std::make_unique<MPSSimulationState>(
-        std::move(state), mpsTensors, scratchPad, m_cutnHandle, m_randomEngine);
+        std::move(state), mpsTensors, scratchPad, m_cutnHandle, m_randomEngine, m_numLevels);
   }
   auto [state, mpsTensors] =
       createFromStateVec(m_cutnHandle, scratchPad, size,
                          reinterpret_cast<std::complex<ScalarType> *>(ptr),
-                         MPSSettings().maxBond, m_randomEngine);
+                         MPSSettings().maxBond, m_randomEngine, m_numLevels);
   return std::make_unique<MPSSimulationState>(
-      std::move(state), mpsTensors, scratchPad, m_cutnHandle, m_randomEngine);
+      std::move(state), mpsTensors, scratchPad, m_cutnHandle, m_randomEngine, m_numLevels);
 }
 
 MPSSettings::MPSSettings() {
@@ -645,7 +655,7 @@ MPSSettings::MPSSettings() {
     }
     svdAlgo = iter->second;
     CUDAQ_INFO("Setting MPS SVD algorithm to {} ({}).",
-                fmt::underlying(svdAlgo), iter->first);
+               fmt::underlying(svdAlgo), iter->first);
   }
 
   using GaugePair =
@@ -672,7 +682,7 @@ MPSSettings::MPSSettings() {
     }
     gaugeOption = iter->second;
     CUDAQ_INFO("Setting MPS GAUGE option to {} ({}).", iter->first,
-                fmt::underlying(iter->second));
+               fmt::underlying(iter->second));
   }
 }
 
