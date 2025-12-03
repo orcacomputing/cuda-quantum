@@ -182,6 +182,13 @@ void oneQuditSingleParameterApply(ScalarAngle angle, QuditArgs &...args) {
     // Nothing left to do, return
     return;
   }
+  // If we are here, then mod must be control or adjoint
+  // Extract the controls and the target
+  std::vector<QuditInfo> controls(targets.begin(), targets.begin() + nArgs - 1);
+
+  // Apply the gate
+  getExecutionManager()->apply(gateName, {angle}, controls, {targets.back()},
+                               std::is_same_v<mod, adj>);
 }
 
 #define CUDAQ_QIS_PHOTONIC_PARAM_ONE_TARGET_(NAME)                             \
