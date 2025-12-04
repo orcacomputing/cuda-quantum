@@ -36,6 +36,7 @@ namespace qudit_op {
   };
 
 ConcreteQuditOp(create) ConcreteQuditOp(annihilate) ConcreteQuditOp(phase_shift)
+    ConcreteQuditOp(beam_splitter)
 
 } // namespace qudit_op
 
@@ -57,8 +58,7 @@ inline bool quditIsNegative(qudit<Levels> &q) {
 
 /// This function will apply the specified `QuantumOp`. It will check the
 /// modifier template type and if it is `base`, it will apply the operation to
-/// any qudits provided as input. If `ctrl`, it will take the first `N-1` qudits
-/// as the controls and the last qudit as the target.
+/// any qudits provided as input.
 template <typename QuantumOp, typename mod = base, typename... QuditArgs>
 void oneQuditApply(QuditArgs &...args) {
   // Get the name of this operation
@@ -169,12 +169,12 @@ void oneQuditSingleParameterApply(ScalarAngle angle, QuditArgs &...args) {
   // Get the name of the operation
   auto gateName = QuantumOp::name();
 
-  // Map the qubits to their unique ids and pack them into a std::array
+  // Map the qudits to their unique ids and pack them into a std::array
   constexpr std::size_t nArgs = sizeof...(QuditArgs);
   std::vector<QuditInfo> targets{quditToQuditInfo(args)...};
 
-  // If there are more than one qubits and mod == base, then
-  // we just want to apply the same gate to all qubits provided
+  // If there are more than one qudits and mod == base, then
+  // we just want to apply the same gate to all qudits provided
   if constexpr (nArgs > 1 && std::is_same_v<mod, base>) {
     for (auto &targetId : targets)
       getExecutionManager()->apply(gateName, {angle}, {}, {targetId});
@@ -215,8 +215,7 @@ void oneQuditSingleParameterApply(ScalarAngle angle, QuditArgs &...args) {
 
   // We just want to apply the same gate to all qubits provided
   for (auto &targetId : targets)
-    getExecutionManager()->apply(gateName, std::vector<double>{angle}, {},
-                                 {targetId});
+    getExecutionManager()->apply(gateName, {angle}, {}, {targetId});
 }
 
 #define CUDAQ_QIS_PHOTONIC_PARAM_ONE_TARGET_(NAME)                             \
@@ -237,14 +236,78 @@ void oneQuditSingleParameterApply(ScalarAngle angle, QuditArgs &...args) {
 
 CUDAQ_QIS_PHOTONIC_PARAM_ONE_TARGET_(phase_shift)
 
-/// @brief The `beam splitter` gate
-template <std::size_t Levels>
-void beam_splitter(const double &theta, cudaq::qudit<Levels> &q,
-                   cudaq::qudit<Levels> &r) {
-  cudaq::getExecutionManager()->apply(
-      "beam_splitter", {theta}, {},
-      {{q.n_levels(), q.id()}, {r.n_levels(), r.id()}});
+#if CUDAQ_USE_STD20
+
+template <typename QuantumOp, typename mod = base, typename ScalarAngle,
+          typename... QuditArgs>
+void twoQuditSingleParameterApply(ScalarAngle angle, QuditArgs &...args) {
+  // Get the name of the operation
+  auto gateName = QuantumOp::name();
+
+  // Map the qubits to their unique ids and pack them into a std::array
+  constexpr std::size_t nArgs = sizeof...(QuditArgs);
+  std::vector<QuditInfo> quditIds{quditToQuditInfo(args)...};
+
+  // If there are more than one qubits and mod == base, then
+  // we just want to apply the same gate to all qubits provided
+  if constexpr (nArgs == 2) {
+    getExecutionManager()->apply(gateName, {angle}, {}, {quditIds});
+    // Nothing left to do, return
+    return;
+  } else {
+    static_assert(
+        std::is_same_v<mod, ctrl>,
+        "More than 2 qudits passed to beam_splitter but modifier != ctrl.");
+  }
+  // Controls are all qubits except the last 2
+  std::vector<QuditInfo> controls(quditIds.begin(),
+                                  quditIds.begin() + quditIds.size() - 2);
+  std::vector<QuditInfo> targets(quditIds.end() - 2, quditIds.end());
+
+  // Apply the gate
+  getExecutionManager()->apply(gateName, {angle}, controls, targets);
 }
+
+#define CUDAQ_QIS_PHOTONIC_PARAM_TWO_TARGET_(NAME)                             \
+  namespace types {                                                            \
+  struct NAME {                                                                \
+    inline static const std::string name{#NAME};                               \
+  };                                                                           \
+  }                                                                            \
+  template <typename mod = base, typename ScalarAngle, typename... QuditArgs>  \
+  void NAME(ScalarAngle angle, QuditArgs &...args) {                           \
+    twoQuditSingleParameterApply<qudit_op::NAME##Op, mod>(angle, args...);     \
+  }
+
+#else // not C++20
+
+template <typename QuantumOp, typename ScalarAngle, typename... QuditArgs>
+void twoQuditSingleParameterApply(ScalarAngle angle, QuditArgs &...args) {
+
+  // Get the name of the operation
+  auto gateName = QuantumOp::name();
+
+  // Map the qubits to their unique ids and pack them into a std::array
+  std::vector<QuditInfo> quditIds{quditToQuditInfo(args)...};
+
+  // We just want to apply the same gate to all qubits provided
+
+  getExecutionManager()->apply(gateName, {angle}, {}, {quditIds});
+
+#define CUDAQ_QIS_PHOTONIC_PARAM_TWO_TARGET_(NAME)                             \
+  namespace types {                                                            \
+  struct NAME {                                                                \
+    inline static const std::string name{#NAME};                               \
+  };                                                                           \
+  }                                                                            \
+  template <typename ScalarAngle, typename... QuditArgs>                       \
+  void NAME(ScalarAngle angle, QuditArgs &...args) {                           \
+    twoQuditSingleParameterApply<qudit_op::NAME##Op>(angle, args...);          \
+  }
+
+#endif // not C++20
+
+CUDAQ_QIS_PHOTONIC_PARAM_TWO_TARGET_(beam_splitter)
 
 /// @brief Measure a qudit
 template <std::size_t Levels>

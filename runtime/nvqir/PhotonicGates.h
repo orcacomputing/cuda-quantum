@@ -7,15 +7,14 @@
  ******************************************************************************/
 
 #pragma once
-#include "cudaq/operators.h"
 
+#include "cudaq/utils/matrix.h"
 #include <Eigen/Dense>
+#include <cmath>
+#include <complex>
 #include <vector>
 
 namespace nvqir {
-
-// template <typename Scalar = double>
-// static constexpr std::complex<Scalar> im = std::complex<Scalar>(0, 1.);
 
 template <typename ScalarType = double>
 using ComplexT = std::complex<ScalarType>;
@@ -70,62 +69,115 @@ cudaq::complex_matrix::EigenMatrix plus_matrix(std::size_t numLevels) {
 };
 
 template <typename Scalar>
-cudaq::complex_matrix::EigenMatrix beam_splitter_matrix(std::size_t numLevels,
-                                                        Scalar &theta) {
-  // Returns the beam splitter operator matrix.
-  //  Args:
-  //   - numLevels: Number of levels in the qudit.
-  //   - theta: Beam splitter angle.
-  cudaq::dimension_map dimension_map = {{0, numLevels}, {1, numLevels}};
-  static constexpr std::complex<Scalar> im = std::complex<Scalar>(0, 1.);
+cudaq::complex_matrix::EigenMatrix
+beam_splitter_matrix(std::size_t numLevels, double theta, double phi = M_PI_2) {
 
-  auto create0 = cudaq::boson_op::create(0);
-  auto annihilate0 = cudaq::boson_op::annihilate(0);
-  auto create1 = cudaq::boson_op::create(1);
-  auto annihilate1 = cudaq::boson_op::annihilate(1);
+  using value_type = std::complex<double>;
 
-  auto term1 = create0 * annihilate1;
-  auto term2 = annihilate0 * create1;
-  auto matrix =
-      (im * theta * (term1 + term2)).to_matrix(dimension_map).exponential();
+  std::vector<value_type> sqrt_vals(numLevels);
+  for (std::size_t i = 0; i < numLevels; ++i)
+    sqrt_vals[i] = std::sqrt(static_cast<value_type>(i));
+
+  value_type ct = std::cos(theta);
+  value_type st = std::sin(theta) * std::exp(value_type(0, phi));
+
+  auto R = cudaq::complex_matrix(4, 4);
+  R[{0, 2}] = ct;
+  R[{0, 3}] = -std::conj(st);
+  R[{1, 2}] = st;
+  R[{1, 3}] = ct;
+  R[{2, 0}] = ct;
+  R[{2, 1}] = st;
+  R[{3, 0}] = -std::conj(st);
+  R[{3, 1}] = ct;
+
+  auto dim = numLevels * numLevels;
+  auto matrix = cudaq::complex_matrix(dim, dim);
+  matrix[{0, 0}] = 1.0;
+
+  // rank 3
+  for (std::size_t m = 0; m < numLevels; ++m) {
+    for (std::size_t n = 0; n < numLevels - m; ++n) {
+      auto p = m + n;
+      if (0 < p && p < numLevels) {
+        auto row = m * numLevels + n;
+        auto col = p * numLevels + 0;
+        auto row_m1 = (m - 1) * numLevels + n;
+        auto col_p1 = (p - 1) * numLevels + 0;
+        auto row_n1 = m * numLevels + (n - 1);
+        if (m > 0 && p > 0)
+          matrix[{row, col}] = R[{0, 2}] * sqrt_vals[m] / sqrt_vals[p] *
+                               matrix[{row_m1, col_p1}];
+        if (n > 0 && p > 0)
+          matrix[{row, col}] += R[{1, 2}] * sqrt_vals[n] / sqrt_vals[p] *
+                                matrix[{row_n1, col_p1}];
+      }
+    }
+  }
+
+  // rank 4
+  for (std::size_t m = 0; m < numLevels; ++m) {
+    for (std::size_t n = 0; n < numLevels; ++n) {
+      for (std::size_t p = 0; p < numLevels; ++p) {
+        auto q = m + n - p;
+        if (0 < q && q < numLevels) {
+          auto row = m * numLevels + n;
+          auto col = p * numLevels + q;
+          auto row_m1 = (m - 1) * numLevels + n;
+          auto col_q1 = p * numLevels + (q - 1);
+          auto row_n1 = m * numLevels + (n - 1);
+          if (m > 0 && q > 0)
+            matrix[{row, col}] = R[{0, 3}] * sqrt_vals[m] / sqrt_vals[q] *
+                                 matrix[{row_m1, col_q1}];
+          if (n > 0 && q > 0)
+            matrix[{row, col}] += R[{1, 3}] * sqrt_vals[n] / sqrt_vals[q] *
+                                  matrix[{row_n1, col_q1}];
+        }
+      }
+    }
+  }
   return matrix.as_eigen();
 };
 
 template <typename Scalar>
 cudaq::complex_matrix::EigenMatrix
-displacement_matrix(std::size_t numLevels,
-                    std::complex<Scalar> displacement_amplitude) {
-  // Returns the displacement operator matrix.
-  //  Args:
-  //   - numLevels: Number of levels in the qudit.
-  //   - displacement: Amplitude of the displacement operator.
-  // See also https://en.wikipedia.org/wiki/Displacement_operator.
+displacement_matrix(std::size_t numLevels, double amplitude, double angle) {
 
-  auto create = cudaq::boson_op::create(0);
-  auto annihilate = cudaq::boson_op::annihilate(0);
+  using value_type = std::complex<double>;
 
-  auto term1 = displacement_amplitude * create;
-  auto term2 = std::conj(displacement_amplitude) * annihilate;
-  auto matrix = (term1 - term2).to_matrix({{0, numLevels}}).exponential();
+  std::vector<value_type> sqrt_vals(numLevels);
+  for (int i = 0; i < numLevels; ++i)
+    sqrt_vals[i] = std::sqrt(static_cast<double>(i));
 
+  value_type mu0 = amplitude * std::exp(value_type(0, angle));
+  value_type mu1 = -amplitude * std::exp(value_type(0, -angle));
+
+  auto matrix = cudaq::complex_matrix(numLevels, numLevels);
+  matrix[{0, 0}] = std::exp(-0.5 * amplitude * amplitude);
+
+  for (int m = 1; m < numLevels; ++m)
+    matrix[{m, 0}] = mu0 / sqrt_vals[m] * matrix[{m - 1, 0}];
+
+  for (int m = 0; m < numLevels; ++m) {
+    for (int n = 1; n < numLevels; ++n) {
+      auto term1 = mu1 / sqrt_vals[n] * matrix[{m, n - 1}];
+      auto term2 = (m > 0 ? sqrt_vals[m] / sqrt_vals[n] * matrix[{m - 1, n - 1}]
+                          : value_type(0.0, 0.0));
+      matrix[{m, n}] = term1 + term2;
+    }
+  }
   return matrix.as_eigen();
 };
 
 template <typename Scalar>
 cudaq::complex_matrix::EigenMatrix phase_shift_matrix(std::size_t numLevels,
-                                                      Scalar &phi) {
-  // Returns the phase shift operator matrix.
-  //  Args:
-  //   - numLevels: Number of levels in the qudit.
-  //   - phi: Phase shift angle.
-  static constexpr std::complex<Scalar> im = std::complex<Scalar>(0, 1.);
+                                                      double phi) {
+  static constexpr std::complex<double> im = std::complex<double>(0, 1.);
 
-  auto create = cudaq::boson_op::create(0);
-  auto annihilate = cudaq::boson_op::annihilate(0);
-
-  auto number_op = create * annihilate;
-  auto matrix =
-      (im * phi * number_op).to_matrix({{0, numLevels}}).exponential();
+  auto matrix = cudaq::complex_matrix(numLevels, numLevels);
+  for (size_t n = 0; n < numLevels; n++) {
+    matrix[{n, n}] = std::exp(n * phi * im);
+  }
   return matrix.as_eigen();
 };
 
