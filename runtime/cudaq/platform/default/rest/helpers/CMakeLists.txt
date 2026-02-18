@@ -1,5 +1,5 @@
 # ============================================================================ #
-# Copyright (c) 2022 - 2025 NVIDIA Corporation & Affiliates and Contributors.  #
+# Copyright (c) 2022 - 2026 NVIDIA Corporation & Affiliates.                   #
 # All rights reserved.                                                         #
 #                                                                              #
 # This source code and the accompanying materials are made available under     #
@@ -7,9 +7,9 @@
 # ============================================================================ #
 
 add_subdirectory(anyon)
-if (AWSSDK_ROOT)
-  add_subdirectory(braket)
-endif()
+# if (AWSSDK_ROOT)
+#   add_subdirectory(braket)
+# endif()
 add_subdirectory(infleqtion)
 add_subdirectory(ionq)
 add_subdirectory(iqm)

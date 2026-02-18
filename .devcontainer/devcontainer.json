@@ -2,16 +2,33 @@
 	"name": "cuda-quantum-dev",
 	"build": {
 		"dockerfile": "../docker/build/cudaq.dev.Dockerfile",
-		"args": { 
+		"args": {
 			"destination": "workspaces/host"
 		}
 	},
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/cuda-quantum,type=bind",
+	"workspaceFolder": "/workspaces/cuda-quantum",
 	// If you do not have the NVIDIA container runtime installed, available GPUs will not be automatically detected.
 	// You can manually pass the flag to enable GPU support to docker by uncommenting the line below.
 	// "runArgs": [ "--gpus=all" ],
 	"hostRequirements": {
 		"gpu": "optional"
 	},
+	// Dev container features for pre-commit hook dependencies
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "20"
+		},
+		"ghcr.io/devcontainers/features/go:1": {
+			"version": "latest"
+		}
+	},
+	// Install pre-commit and tools needed by its system hooks (markdown-link-check, license-eye)
+	"postCreateCommand": "git config --global --add safe.directory /workspaces/cuda-quantum && python3 -m pip install --break-system-packages pre-commit && npm install -g markdown-link-check && go install github.com/apache/skywalking-eyes/cmd/license-eye@latest",
+	// To automatically install pre-commit git hooks when the container is created, add to postCreateCommand:
+	//   && pre-commit install --install-hooks
+	// Note: Hooks are stored in .git/hooks/ on the host. Only enable if you commit from within the container.
+	// Alternatively, run checks manually with: pre-commit run --all-files
 	// To use certain debugging tools, you may want uncomment the two lines below.
 	// Be mindful of security implications when you do. See also 
 	// - https://github.com/rr-debugger/rr/wiki/Docker
@@ -20,7 +37,7 @@
 	// "securityOpt": [ "seccomp=unconfined" ],
 	"customizations": {
 		"vscode": {
-		    "extensions": [
+			"extensions": [
 				"ms-python.python",
 				"twxs.cmake",
 				"ms-vscode.cmake-tools",
@@ -35,7 +52,7 @@
 				"llvm-vs-code-extensions.vscode-mlir",
 				"ms-azuretools.vscode-docker",
 				"ritwickdey.liveserver"
-			],			
+			],
 			"settings": {
 				"files.associations": {
 					"CMakeLists.txt": "cmake",
@@ -46,11 +63,18 @@
 					"*.qke": "mlir",
 					"*.qtx": "mlir"
 				},
-				"mlir.server_path":"cudaq-lsp-server",
+				"mlir.server_path": "cudaq-lsp-server",
 				"mlir.onSettingsChanged": "restart",
 				"markdownlint.config": {
-					"MD013": { "tables" : false, "code_blocks" : false },
-					"MD033": { "allowed_elements": ["br"] }
+					"MD013": {
+						"tables": false,
+						"code_blocks": false
+					},
+					"MD033": {
+						"allowed_elements": [
+							"br"
+						]
+					}
 				},
 				"markdownlint.run": "onSave",
 				"[markdown]": {
@@ -80,7 +104,10 @@
 					"copyrightHolder": "NVIDIA Corporation & Affiliates"
 				},
 				"psi-header.variables": [
-					["projectCreationYear", "2022"]
+					[
+						"projectCreationYear",
+						"2022"
+					]
 				],
 				"psi-header.changes-tracking": {
 					"isActive": true,
@@ -118,7 +145,9 @@
 						"suffix": " #",
 						"lineLength": 80,
 						"end": "# ============================================================================ #",
-						"ignoreLines": ["#!"]
+						"ignoreLines": [
+							"#!"
+						]
 					},
 					{
 						"language": "perl",
@@ -222,7 +251,10 @@
 						"suffix": " #",
 						"lineLength": 80,
 						"end": "# ============================================================================ #",
-						"ignoreLines": ["#", "@"]
+						"ignoreLines": [
+							"#",
+							"@"
+						]
 					}
 				],
 				"psi-header.templates": [
@@ -240,8 +272,8 @@
 				"C_Cpp.inlayHints.autoDeclarationTypes.enabled": false,
 				"C_Cpp.inlayHints.referenceOperator.enabled": false,
 				"C_Cpp.doxygen.generateOnType": false,
-				"C_Cpp.default.cStandard": "c17",
-				"C_Cpp.default.cppStandard": "c++17",
+				"C_Cpp.default.cStandard": "c20",
+				"C_Cpp.default.cppStandard": "c++20",
 				"C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
 				"C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
 				"C_Cpp.default.includePath": [
@@ -265,7 +297,7 @@
 					"param",
 					"return",
 					"exception"
-				]					  
+				]
 			}
 		}
 	}

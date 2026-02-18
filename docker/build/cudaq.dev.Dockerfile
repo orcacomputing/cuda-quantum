@@ -1,5 +1,5 @@
 # ============================================================================ #
-# Copyright (c) 2022 - 2025 NVIDIA Corporation & Affiliates.                   #
+# Copyright (c) 2022 - 2026 NVIDIA Corporation & Affiliates.                   #
 # All rights reserved.                                                         #
 #                                                                              #
 # This source code and the accompanying materials are made available under     #
@@ -17,7 +17,7 @@
 # 3) set the CC and CXX environment variable to use the same compiler toolchain
 #    as the LLVM dependencies have been built with.
 
-ARG base_image=ghcr.io/nvidia/cuda-quantum-devdeps:ext-cu12.6-gcc11-main
+ARG base_image=ghcr.io/nvidia/cuda-quantum-devcontainer:cu12.6-gcc11-main
 FROM $base_image
 
 ENV CUDAQ_REPO_ROOT=/workspaces/cuda-quantum
@@ -34,11 +34,11 @@ WORKDIR "$destination"
 ARG mpi=
 RUN if [ -n "$mpi" ]; \
     then \
-        if [ ! -z "$MPI_PATH" ]; then \
-            echo "Using a base image with MPI is not supported when passing a 'mpi' build argument." && exit 1; \
-        else \
-			apt update && apt install -y lib$mpi-dev ; \
-		fi \
+    if [ ! -z "$MPI_PATH" ]; then \
+    echo "Using a base image with MPI is not supported when passing a 'mpi' build argument." && exit 1; \
+    else \
+    apt update && apt install -y lib$mpi-dev ; \
+    fi \
     fi
 
 # Configuring a base image that contains the necessary dependencies for GPU
@@ -50,15 +50,15 @@ ARG install=
 ARG git_source_sha=xxxxxxxx
 RUN if [ -n "$install" ]; \
     then \
-        expected_prefix=$CUDAQ_INSTALL_PREFIX; \
-        install=`echo $install | xargs` && export $install; \
-        bash scripts/build_cudaq.sh -v; \
-        if [ ! "$?" -eq "0" ]; then \
-            exit 1; \
-        elif [ "$CUDAQ_INSTALL_PREFIX" != "$expected_prefix" ]; then \
-            mkdir -p "$expected_prefix"; \
-            mv "$CUDAQ_INSTALL_PREFIX"/* "$expected_prefix"; \
-            rmdir "$CUDAQ_INSTALL_PREFIX"; \
-        fi; \
-        echo "source-sha: $git_source_sha" > "$CUDAQ_INSTALL_PREFIX/build_info.txt"; \
+    expected_prefix=$CUDAQ_INSTALL_PREFIX; \
+    install=`echo $install | xargs` && export $install; \
+    bash scripts/build_cudaq.sh -v; \
+    if [ ! "$?" -eq "0" ]; then \
+    exit 1; \
+    elif [ "$CUDAQ_INSTALL_PREFIX" != "$expected_prefix" ]; then \
+    mkdir -p "$expected_prefix"; \
+    mv "$CUDAQ_INSTALL_PREFIX"/* "$expected_prefix"; \
+    rmdir "$CUDAQ_INSTALL_PREFIX"; \
+    fi; \
+    echo "source-sha: $git_source_sha" > "$CUDAQ_INSTALL_PREFIX/build_info.txt"; \
     fi

@@ -1,5 +1,5 @@
 # ============================================================================ #
-# Copyright (c) 2022 - 2025 NVIDIA Corporation & Affiliates.                   #
+# Copyright (c) 2022 - 2026 NVIDIA Corporation & Affiliates.                   #
 # All rights reserved.                                                         #
 #                                                                              #
 # This source code and the accompanying materials are made available under     #
@@ -19,12 +19,12 @@ target_include_directories(cudaq-rest-qpu PRIVATE .
        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/runtime>
        $<INSTALL_INTERFACE:include>)
 
-if (AWSSDK_ROOT)
-  set(SERVICE_COMPONENTS braket s3-crt sts)
-  find_package(AWSSDK REQUIRED COMPONENTS ${SERVICE_COMPONENTS})
-else()
-  set(AWSSDK_LINK_LIBRARIES "")
-endif()
+# if (AWSSDK_ROOT)
+#   set(SERVICE_COMPONENTS braket s3-crt sts)
+#   find_package(AWSSDK REQUIRED COMPONENTS ${SERVICE_COMPONENTS})
+# else()
+#   set(AWSSDK_LINK_LIBRARIES "")
+# endif()
 
 target_link_libraries(cudaq-rest-qpu 
   PUBLIC 

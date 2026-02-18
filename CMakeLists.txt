@@ -1,5 +1,5 @@
 # ============================================================================ #
-# Copyright (c) 2022 - 2025 NVIDIA Corporation & Affiliates.                   #
+# Copyright (c) 2022 - 2026 NVIDIA Corporation & Affiliates.                   #
 # All rights reserved.                                                         #
 #                                                                              #
 # This source code and the accompanying materials are made available under     #
@@ -93,10 +93,10 @@ if (CUDAQ_ENABLE_REST AND NOT DEFINED CUDAQ_ENABLE_REMOTE_SIM)
   endif()
 endif()
 
-# Enable Amazon Braket backends by default.
-if (NOT DEFINED CUDAQ_ENABLE_BRAKET_BACKEND)
-  set(CUDAQ_ENABLE_BRAKET_BACKEND ON CACHE BOOL "Enable building AWS SDK for Amazon Braket backends.")
-endif()
+# # Enable Amazon Braket backends by default.
+# if (NOT DEFINED CUDAQ_ENABLE_BRAKET_BACKEND)
+#   set(CUDAQ_ENABLE_BRAKET_BACKEND ON CACHE BOOL "Enable building AWS SDK for Amazon Braket backends.")
+# endif()
 
 # Enable Pasqal target by default.
 if (NOT DEFINED CUDAQ_ENABLE_PASQAL_BACKEND)
@@ -193,9 +193,9 @@ if(NOT CURL_LIBRARY AND EXISTS "$ENV{CURL_INSTALL_PREFIX}/lib/libcurl.a")
   SET(CMAKE_USE_SYSTEM_CURL TRUE)
   SET(CURL_NO_CURL_CMAKE ON)
 endif()
-if(NOT AWSSDK_ROOT AND CUDAQ_ENABLE_BRAKET_BACKEND)
-  SET(AWSSDK_ROOT "$ENV{AWS_INSTALL_PREFIX}")
-endif()
+# if(NOT AWSSDK_ROOT AND CUDAQ_ENABLE_BRAKET_BACKEND)
+#   SET(AWSSDK_ROOT "$ENV{AWS_INSTALL_PREFIX}")
+# endif()
 if(NOT CUDAQ_EXTERNAL_NVQIR_SIMS)
   SET(CUDAQ_EXTERNAL_NVQIR_SIMS $ENV{CUDAQ_EXTERNAL_NVQIR_SIMS})
 endif()
